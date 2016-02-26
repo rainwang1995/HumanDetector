@@ -1,0 +1,119 @@
+
+#include <iostream>
+#include "opencvHeader.h"
+#include "CKinect.h"
+#include "preprocess.h"
+#include "Utils.h"
+#include <fstream>
+#include <string>
+
+#include "mlpack/core.hpp"
+#include "mlpack/methods/mean_shift/mean_shift.hpp"
+using namespace std;
+using namespace mlpack;
+
+int main()
+{
+	CKinect kinetCtrl;
+	if (!kinetCtrl.Init())
+	{
+		cerr << "Kinect Init failed" << endl;
+		return 1;
+	}
+	int width = kinetCtrl.getDepthWidth();
+	int height = kinetCtrl.getDepthHeight();
+	Mat depthimg(height, width, CV_16UC1);
+	ushort* depthdata = (ushort*)depthimg.data;
+	/*while (true)
+	{
+		kinetCtrl.UpdateDepth(depthdata);
+		Mat depth8U(height, width, CV_8U);
+		depthimg.convertTo(depth8U, CV_8U, 255 / 8000.0);
+		imshow("depth", depth8U);
+		
+		Mat filterd;
+		preProcessing::pixelFilter(depthimg, filterd);
+		filterd.convertTo(depth8U, CV_8U, 255 / 8000.0);
+		imshow("depthfilterd", depth8U);
+		Mat hist;
+		Utils::Histogram::getHist(filterd, hist, 80);
+		Mat histimg;
+		Utils::Histogram::markMaxPeaks(hist, histimg);
+		imshow("hist", histimg);
+		vector<pair<int, int> > peaks;
+		Utils::Histogram::getMaxPeaks(hist, peaks);
+		int index = 0;
+		int maxbinval = 0;
+		for (int i = 0; i < peaks.size();++i)
+		{
+			if (peaks[i].first>maxbinval)
+			{
+				maxbinval = peaks[i].first;
+				index = peaks[i].second;
+			}
+		}
+		cout << index <<" "<<maxbinval<< endl;
+		Mat seg = filterd.clone();
+		seg.setTo(0, seg < 100 * index);
+		seg.setTo(0, seg > 100 * (index + 1));
+		seg.convertTo(depth8U, CV_8U, 255 / 8000.0);
+		imshow("seg", depth8U);
+
+		int key=waitKey(10);
+		if (key=='q')
+		{
+			break;
+		}
+		if (key=='s')
+		{
+			imwrite("hist.png", histimg);
+		}
+	}*/
+	depthimg = imread("depth000322.png", CV_LOAD_IMAGE_ANYDEPTH);
+	Mat depth8U(height, width, CV_8U);
+	depthimg.convertTo(depth8U, CV_8U, 255 / 8000.0);
+	imshow("depth", depth8U);
+
+	Mat filterd;
+	preProcessing::pixelFilter(depthimg, filterd);
+	filterd.convertTo(depth8U, CV_8U, 255 / 8000.0);
+	imshow("depthfilterd", depth8U);
+	Mat hist;
+	Utils::Histogram::getHist(filterd, hist, 80);
+	Mat histimg;
+	Utils::Histogram::markMaxPeaks(hist, histimg);
+	imshow("hist", histimg);
+	vector<pair<int, int> > peaks;
+	Utils::Histogram::getMaxPeaks(hist, peaks);
+
+	Utils::MeanShift meanshift;
+
+	int index = 0;
+	int maxbinval = 0;
+	Mat clusterImg(depthimg.size(), CV_8UC3);
+	for (int i = 0; i < peaks.size(); ++i)
+	{
+		index = peaks[i].second;
+		Mat seg = filterd.clone();
+		seg.setTo(0, seg < 100 * index);
+		seg.setTo(0, seg > 100 * (index + 1));
+		seg.convertTo(depth8U, CV_8U, 255 / 8000.0);
+
+		vector<Point2f> points,centers;
+		vector<int> labels;
+		Utils::getPoints(seg, points);
+		/*meanshift.cluster(points, centers, labels,2);
+		cout << centers.size() << endl;
+		clusterImg.setTo(Scalar::all(0));
+		Utils::displayCluster(clusterImg, points, labels, centers.size());*/
+		imshow("seg", depth8U);
+		//imshow("meanshift", clusterImg);
+		int key = waitKey();
+		if (key=='s')
+		{
+			Utils::writeTocsv("data.csv", points);
+		}
+	}
+	
+	return 0;
+}
