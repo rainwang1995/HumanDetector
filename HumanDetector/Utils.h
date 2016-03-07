@@ -3,35 +3,37 @@
 #include <iostream>
 #include <vector>
 #include "opencvHeader.h"
+#include "mlpack/core.hpp"
+#include "mlpack/methods/mean_shift/mean_shift.hpp"
 using namespace std;
+using namespace mlpack;
+using namespace mlpack::meanshift;
 namespace Utils
 {
 	class Histogram
 	{
 	public:
-		static void getHist(Mat& src, Mat& depth_hist, const int histSize = 8000, const int dims = 1, const int channels = 0);
-		static void plotHist(Mat& hist, Mat& showimg);
-		static void getMaxPeaks(Mat& hist, vector<pair<int, int> >&peaks);
-		static void markMaxPeaks(Mat& hist, Mat& histimg);
+		static void getHist(cv::Mat& src, cv::Mat& depth_hist, const int histSize = 8000, const int dims = 1, const int channels = 0);
+		static void plotHist(cv::Mat& hist, cv::Mat& showimg);
+		static void getMaxPeaks(cv::Mat& hist, vector<pair<int, int> >&peaks);
+		static void markMaxPeaks(cv::Mat& hist, cv::Mat& histimg);
 	};
 
-	class MeanShift
+	class meanShift
 	{
 	public:
-		MeanShift() { set_kernel(NULL); }
-		MeanShift(double(*_kernel_func)(double, double)) { set_kernel(_kernel_func); }
-		void cluster(const vector<Point2f>& points, vector<Point2f>& centers,vector<int>& labels,double kernel_bandwidth=2);
+		meanShift() {};
+		meanShift(double Radius,double maxIterations=1000):meanshift(Radius,maxIterations){}
+		void Cluster(const vector<cv::Point2f>& points, vector<int>& labels, vector<cv::Point2f>& centroids);
 	private:
-		double(*kernel_func)(double, double);
-		void set_kernel(double(*_kernel_func)(double, double));
-		Point2f shift_point(const Point2f &, const vector<Point2f > &, double);
+		MeanShift<> meanshift;
 	};
-
-	double euclidean_distance(const Point2f &point_a, Point2f &point_b);
-	double gaussian_kernel(double distance, double kernel_bandwidth);
-	void   getPoints(Mat& src, vector<Point2f>& points);
-	void   displayCluster(Mat& displayImg, const vector<Point2f>& points, const vector<int> labels,const int labelscnt);
-	inline Scalar randomColor(RNG rng);
-	void   writeTocsv(const string& filename, const vector<Point2f>& points);
+	double euclidean_distance(const cv::Point2f &point_a, cv::Point2f &point_b);
+	void   getPoints(cv::Mat& src, vector<cv::Point2f>& points);
+	void   displayCluster(cv::Mat& displayImg, const vector<cv::Point2f>& points, const vector<int> labels,const int labelscnt);
+	inline cv::Scalar randomColor(cv::RNG rng);
+	void   writeTocsv(const string& filename, const vector<cv::Point2f>& points);
+	bool  findallfiles(const string& folderpath, vector<string>& files, string filetype);
+	//void   meanshiftCluster(const vector<cv::Point2f>& points, vector<int>& labels, vector<cv::Point2f>& centroids);
 };
 #endif

@@ -3,8 +3,11 @@
 #include <cassert>
 #include <string>
 #include <fstream>
+#include <opencv2/imgproc.hpp>
+#include <io.h>
 
 #define EPSILON 0.0000001
+using namespace cv;
 
 void Utils::Histogram::getHist(Mat & src, Mat & depth_hist, const int histSize,const int dims, const int channels)
 {
@@ -81,6 +84,7 @@ void Utils::Histogram::markMaxPeaks(Mat & hist, Mat & histimg)
 	double minVal = 0;
 	minMaxLoc(hist, &minVal, &maxVal);
 	int histSize = hist.rows;
+
 	histimg.create(histSize, histSize, CV_8UC3);
 	histimg.setTo(Scalar(255,255,255));
 
@@ -132,92 +136,6 @@ void Utils::Histogram::markMaxPeaks(Mat & hist, Mat & histimg)
 	}*/
 }
 
-void Utils::MeanShift::cluster(const vector<Point2f>& points, vector<Point2f>& centers, vector<int>& labels,double kernel_bandwidth/*=2*/)
-{
-	vector<bool> stop_moving(points.size(),false);
-	stop_moving.reserve(points.size());
-
-	labels = vector<int>(points.size(), -1);
-
-	vector<Point2f> shifted_points = points;
-	double max_shift_distance = 1e30;
-	while (max_shift_distance>EPSILON)
-	{
-		max_shift_distance = 0;
-		for (int i = 0; i < shifted_points.size();++i)
-		{
-			if (!stop_moving[i])
-			{
-				Point2f point_new = shift_point(shifted_points[i], points, kernel_bandwidth);
-				double shift_distance = Utils::euclidean_distance(point_new, shifted_points[i]);
-				if (shift_distance>max_shift_distance)
-				{
-					max_shift_distance = shift_distance;
-				}
-				if (shift_distance<EPSILON)
-				{
-					stop_moving[i] = true;
-				}
-
-				shifted_points[i] = point_new;
-			}
-		}
-	}
-
-	stop_moving.clear();
-	
-	int clusters = 0;
-
-	for (int i = 0; i < shifted_points.size();++i)
-	{
-		if (labels[i]==-1)
-		{	
-			++clusters;
-
-			centers.push_back(shifted_points[i]);
-			for (int j = i; j < shifted_points.size();++j)
-			{
-				if (shifted_points[i]==shifted_points[j])
-				{
-					labels[j] = clusters;
-				}
-			}
-		}
-	}
-}
-
-void Utils::MeanShift::set_kernel(double(*_kernel_func)(double, double))
-{
-	if (!_kernel_func) {
-		kernel_func = gaussian_kernel;
-	}
-	else {
-		kernel_func = _kernel_func;
-	}
-}
-
-Point2f Utils::MeanShift::shift_point(const Point2f &point, const vector<Point2f>& points, double kernel_bandwidth)
-{
-	Point2f shifted_point = {0.0,0.0};
-
-	double total_weight = 0;
-	for (int i = 0; i < points.size();++i)
-	{
-		Point2f temp_point = points[i];
-		double distance = Utils::euclidean_distance(point, temp_point);
-		double weight = kernel_func(distance, kernel_bandwidth);
-		shifted_point.x += temp_point.x*weight;
-		shifted_point.y += temp_point.y*weight;
-		
-		total_weight += weight;
-	}
-
-	shifted_point.x /= total_weight;
-	shifted_point.y /= total_weight;
-
-	return shifted_point;
-}
-
 double Utils::euclidean_distance(const Point2f & point_a, Point2f & point_b)
 {
 	double total = 0;
@@ -226,11 +144,7 @@ double Utils::euclidean_distance(const Point2f & point_a, Point2f & point_b)
 	return sqrt(total);
 }
 
-double Utils::gaussian_kernel(double distance, double kernel_bandwidth)
-{
-	double temp = exp(-(distance*distance) / (kernel_bandwidth));
-	return temp;
-}
+
 
 void Utils::getPoints(Mat& src, vector<Point2f>& points)
 {
@@ -273,7 +187,7 @@ void Utils::displayCluster(Mat& displayImg, const vector<Point2f>& points, const
 
 	for (size_t i = 0; i < pointCnt;++i)
 	{
-		mask.at<uchar>(points[i]) = labels[i];
+		mask.at<uchar>(points[i]) = labels[i]+1;
 	}
 
 	for (size_t i = 1; i < labelscnt+1;++i)
@@ -299,4 +213,52 @@ void Utils::writeTocsv(const string& filename, const vector<Point2f>& points)
 		outfile << points[i].x << ',' << points[i].y << "\n";
 	}
 	outfile.close();
+}
+
+bool Utils::findallfiles(const string& folderpath, vector<string>& files,string filetype)
+{
+		_finddata_t fileInfo;
+		string strfind = folderpath + "\\*."+filetype;
+		//replacepath(strfind);
+		intptr_t handle = _findfirst(strfind.c_str(), &fileInfo);
+
+		if (handle == -1)
+		{
+			cerr << "failded to open folder" << folderpath << endl;
+			return false;
+		}
+		
+		files.push_back(fileInfo.name);
+
+		while (_findnext(handle, &fileInfo) == 0)
+		{
+			if (fileInfo.attrib & _A_SUBDIR)
+				continue;
+
+			files.push_back(fileInfo.name);
+
+		}
+		_findclose(handle);
+		return true;
+}
+
+void Utils::meanShift::Cluster(const vector<Point2f>& points, vector<int>& labels, vector<Point2f>& centers)
+{
+	arma::mat dataset(2,points.size());
+	for (int i = 0; i < points.size();++i)
+	{
+		dataset(0, i) = points[i].x;
+		dataset(1, i) = points[i].y;
+	}
+
+	arma::Col<size_t> assignments;
+	arma::mat cenroids;
+	meanshift.Cluster(dataset, assignments, cenroids);
+	labels=arma::conv_to<vector<int> >::from(assignments);
+	centers.resize(cenroids.n_cols);
+	centers.reserve(centers.size());
+	for (int i = 0; i < cenroids.n_cols;++i)
+	{
+		centers[i]=Point2f(cenroids(0, i), cenroids(1, i));
+	}
 }

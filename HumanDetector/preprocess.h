@@ -11,9 +11,9 @@ const int outerBandThreshold = 5;
 class preProcessing
 {
 public:
-	static void pixelFilter(Mat& src,Mat& dst);
-	static void contextFilter(Mat& src, Mat& dst);
+	static void pixelFilter(cv::Mat& src,cv::Mat& dst);
+	static void contextFilter(cv::Mat& src, cv::Mat& dst);
 private:
-	static deque<Mat> framequeue;
+	static deque<cv::Mat> framequeue;
 };
 #endif

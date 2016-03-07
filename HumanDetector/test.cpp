@@ -1,4 +1,3 @@
-
 #include <iostream>
 #include "opencvHeader.h"
 #include "CKinect.h"
@@ -6,14 +5,19 @@
 #include "Utils.h"
 #include <fstream>
 #include <string>
-
-#include "mlpack/core.hpp"
-#include "mlpack/methods/mean_shift/mean_shift.hpp"
+#include "HONVNW.h"
 using namespace std;
-using namespace mlpack;
+using namespace cv;
 
 int main()
 {
+	Mat m(64, 128, CV_16UC1);
+	m.setTo(0);
+
+	HONVNW honv;
+	vector<float> f;
+	cout<<honv.getFeatureLen()<<endl;
+	honv.compute(m, f);
 	CKinect kinetCtrl;
 	if (!kinetCtrl.Init())
 	{
@@ -69,7 +73,7 @@ int main()
 			imwrite("hist.png", histimg);
 		}
 	}*/
-	depthimg = imread("depth000322.png", CV_LOAD_IMAGE_ANYDEPTH);
+	depthimg = imread("depth000495.png", IMREAD_ANYDEPTH);
 	Mat depth8U(height, width, CV_8U);
 	depthimg.convertTo(depth8U, CV_8U, 255 / 8000.0);
 	imshow("depth", depth8U);
@@ -86,11 +90,12 @@ int main()
 	vector<pair<int, int> > peaks;
 	Utils::Histogram::getMaxPeaks(hist, peaks);
 
-	Utils::MeanShift meanshift;
+	imwrite("hist.png", histimg);
 
 	int index = 0;
 	int maxbinval = 0;
 	Mat clusterImg(depthimg.size(), CV_8UC3);
+	Utils::meanShift meanshift;
 	for (int i = 0; i < peaks.size(); ++i)
 	{
 		index = peaks[i].second;
@@ -102,17 +107,20 @@ int main()
 		vector<Point2f> points,centers;
 		vector<int> labels;
 		Utils::getPoints(seg, points);
-		/*meanshift.cluster(points, centers, labels,2);
-		cout << centers.size() << endl;
+		cout << points.size() << endl;
+		meanshift.Cluster(points, labels, centers);
+		//cout << centers.size() << endl;
 		clusterImg.setTo(Scalar::all(0));
-		Utils::displayCluster(clusterImg, points, labels, centers.size());*/
+		Utils::displayCluster(clusterImg, points, labels, centers.size());
+		//meanshift.Cluster(points, labels, centers);
 		imshow("seg", depth8U);
-		//imshow("meanshift", clusterImg);
+		imshow("meanshift", clusterImg);
 		int key = waitKey();
 		if (key=='s')
 		{
 			Utils::writeTocsv("data.csv", points);
 		}
+		
 	}
 	
 	return 0;

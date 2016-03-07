@@ -1,10 +1,10 @@
 #include "preprocess.h"
+//using namespace cv;
+deque<cv::Mat> preProcessing::framequeue=deque<cv::Mat>();
 
-deque<Mat> preProcessing::framequeue=deque<Mat>();
-
-void preProcessing::pixelFilter(Mat & src,Mat& dst2)
+void preProcessing::pixelFilter(cv::Mat & src,cv::Mat& dst2)
 {
-	Mat dst = src.clone();
+	cv::Mat dst = src.clone();
 	dst.setTo(0, src < 500);
 	dst.setTo(8000, src > 8000);
 
@@ -13,7 +13,7 @@ void preProcessing::pixelFilter(Mat & src,Mat& dst2)
 
 	int widthBound = width - 1;
 	int heightBound = height - 1;
-	dst2 = Mat::zeros(src.size(), CV_16UC1);
+	dst2 = cv::Mat::zeros(src.size(), CV_16UC1);
 
 	int **filterCollection = new int *[24];
 	for (int i = 0; i < 24; ++i)
@@ -116,15 +116,15 @@ void preProcessing::pixelFilter(Mat & src,Mat& dst2)
 	}
 	delete[] filterCollection;
 
-	if (framequeue.size() == 4)
+	/*if (framequeue.size() == 4)
 	{
 		framequeue.pop_front();
 	}
-	framequeue.push_back(dst);
+	framequeue.push_back(dst);*/
 
 }
 
-void preProcessing::contextFilter(Mat & src, Mat & dst)
+void preProcessing::contextFilter(cv::Mat & src, cv::Mat & dst)
 {
 	dst = src;
 	if (framequeue.size()==0)
