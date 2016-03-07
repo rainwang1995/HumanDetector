@@ -137,12 +137,14 @@
     <ClInclude Include="HONVNW.h" />
     <ClInclude Include="opencvHeader.h" />
     <ClInclude Include="preprocess.h" />
+    <ClInclude Include="SLTP.h" />
     <ClInclude Include="Utils.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="CKinect.cpp" />
     <ClCompile Include="HONVNW.cpp" />
     <ClCompile Include="preprocess.cpp" />
+    <ClCompile Include="SLTP.cpp" />
     <ClCompile Include="test.cpp" />
     <ClCompile Include="Utils.cpp" />
   </ItemGroup>

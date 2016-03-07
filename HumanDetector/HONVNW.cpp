@@ -85,7 +85,6 @@ void HONVNW::detect(cv::Mat& img, vector<Point>& foundLocations, vector<double>&
 			(paddedImgSize.height - winSize.height) / winStride.height + 1).area();
 	}
 	
-
 	Mat paddedimg;
 	copyMakeBorder(img, paddedimg, padding.height, padding.height, padding.width, padding.width, BORDER_REFLECT_101);
 
@@ -110,8 +109,9 @@ void HONVNW::detect(cv::Mat& img, vector<Point>& foundLocations, vector<double>&
 			vector<float> feature;
 			compute(winimg, feature);
 
-			float response = svm->predict(feature, Mat(), ml::StatModel::RAW_OUTPUT);
-			if (response >= hisThreshold)
+			float response = svm->predict(feature);
+			//cout << response << endl;
+			if ((int)response == 1)
 			{
 				foundLocations.push_back(pt0);
 				weights.push_back(response);

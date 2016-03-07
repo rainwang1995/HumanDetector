@@ -30,6 +30,9 @@
     <ClInclude Include="HONVNW.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="SLTP.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="preprocess.cpp">
@@ -45,6 +48,9 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="HONVNW.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="SLTP.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

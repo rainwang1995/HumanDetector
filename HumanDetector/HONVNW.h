@@ -34,7 +34,7 @@ public:
 	void detect(cv::Mat& img, vector<cv::Point>& foundLocations, vector<double>& weights, double hitThreshold = 0, cv::Size winStride = cv::Size(),const vector<cv::Point>& locations=vector<cv::Point>()) const;
 	void detectMultiScale(cv::Mat& img, vector<cv::Rect>& foundloacations, vector<double>& weights, double hitThreshold = 0, cv::Size winStride = cv::Size(), double scale = 1.05, double finalThreshold = 2.0, bool usemeanshift = false)const;
 
-	virtual ~HONVNW() {}
+	virtual ~HONVNW() { maskdx.release(); maskdy.release(); svm.release(); }
 public:
 	//HONV_cell cell;
 	//HONVWindow DetWin;
