@@ -33,6 +33,15 @@
     <ClInclude Include="SLTP.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="Algorithm.hpp">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="LTDP.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="HDD.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="preprocess.cpp">
@@ -51,6 +60,12 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="SLTP.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="LTDP.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="HDD.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

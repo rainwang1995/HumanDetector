@@ -7,25 +7,31 @@
 #include <direct.h>
 #include "preprocess.h"
 #include <omp.h>
-
+#include "Algorithm.hpp"
+#include "SLTP.h"
+#include <algorithm>
 using namespace std;
 using namespace cv;
 using namespace cv::ml;
 
 int main()
 {
-	string path = "F:\\liuhao\\SZU-Kinect-People-Dataset\\Pos\\P2\\";
-	//string path = "F:\\liuhao\\SZU-Kinect-People-Dataset\\depthclip\\P1\\";
+	//string path = "F:\\liuhao\\testTrainSet\\testset\\pos\\";
+	string path = "F:\\liuhao\\testTrainSet\\posfull\\";
+	//string path = "F:\\liuhao\\SZU-Kinect-People-Dataset\\depth\\";
 	vector<string> files;
 	Utils::findallfiles(path, files, "png");
+	sort(files.begin(), files.end());
+	DetectionAlgorithm* detector = new SLTP();
+	//HONVNW honv;
+	detector->loadSvmDetector("F:\\liuhao\\testTrainSet\\model\\sltpsvm2.xml");
 
-	HONVNW honv;
-	honv.setSvmDetector("svm.xml");
-
-	Ptr<SVM> mysvm = StatModel::load<ml::SVM>("svm.xml");
-
+	//Ptr<SVM> mysvm = StatModel::load<ml::SVM>("svm.xml");
+	cout << "样本数 " << files.size() << endl;
+	int cnt = 0;
 	for (int i = 0; i < files.size();++i)
 	{
+		cout << files[i] << endl;
 		string fullpath = path + files[i];
 		Mat sample = imread(fullpath, IMREAD_ANYDEPTH);
 
@@ -35,15 +41,19 @@ int main()
 		{
 			resize(sample, sample, Size(64, 128), 0.0, 0.0, INTER_NEAREST);
 		}*/
+		//resize(sample, sample, Size(128, 256), 0.0, 0.0, INTER_NEAREST);
 		Mat filterimg;
 		preProcessing::pixelFilter(sample, filterimg);
+		//filterimg = sample;
 		//vector<float> feature;
 		//honv.compute(filterimg,feature);
 
 		//Mat bing=Mat::zeros(480, 640, CV_16UC1);
 		//filterimg.copyTo(bing(Rect(50, 50, filterimg.cols, filterimg.rows)));
 		Mat imrgb;
-		filterimg.convertTo(imrgb, CV_8U, 255.0 / 4096);
+		//Mat dd;
+		//normalize(sample, dd);
+		filterimg.convertTo(imrgb, CV_8U, 255.0/8000);
 		cvtColor(imrgb,imrgb,CV_GRAY2BGR);
 
 		//float response = mysvm->predict(feature);
@@ -51,20 +61,18 @@ int main()
 		vector<Rect> founds;
 		vector<double> weights;
 		//vector<Point> tp;
-		honv.detectMultiScale(filterimg, founds, weights);
+		detector->detectMultiScale(filterimg, founds, weights);
 		
+		//detector->detect(filterimg, tp, weights);
 		//honv.detect(bing, tp, weights);
-		cout << "in main:" << endl;
-		cout << founds.size()<<endl;
-		//Mat imrgb;
-		//img.convertTo(imrgb, CV_8U, 255.0 / 4096);
-		//cvtColor(imrgb,imrgb,CV_GRAY2BGR);
-		//cout << founds.size() << endl;
+		//cout << "in main:" << endl;
+		//cout << founds.size()<<endl;
 		
 		for (int j = 0; j < founds.size();++j)
 		{
+			++cnt;
 			Rect r = founds[j];
-			cout << r.x << " " << r.y << " " << r.width << " " << r.height << endl;
+			//cout << r.x << " " << r.y << " " << r.width << " " << r.height << endl;
 			if (r.x < 0)
 				r.x = 0;
 			if (r.y < 0)
@@ -78,9 +86,10 @@ int main()
 		}
 
 		cv::imshow("test", imrgb);
-		cvWaitKey();
+		cvWaitKey(33);
 		cout << endl;
 	}
-	
-	system("pause");
+	cout << "检测到人体数 " << cnt<<endl;
+	cout << "true positive: " << (float)cnt / files.size() << endl;
+	std::system("pause");
 }

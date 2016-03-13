@@ -11,13 +11,7 @@ using namespace cv;
 
 int main()
 {
-	Mat m(64, 128, CV_16UC1);
-	m.setTo(0);
-
-	HONVNW honv;
-	vector<float> f;
-	cout<<honv.getFeatureLen()<<endl;
-	honv.compute(m, f);
+	
 	CKinect kinetCtrl;
 	if (!kinetCtrl.Init())
 	{

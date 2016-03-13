@@ -6,7 +6,7 @@
 #include <vector>
 #include <armadillo>
 #include <opencv2/ml.hpp>
-
+#include "Algorithm.hpp"
 using namespace std;
 
 const double PI = arma::datum::pi;
@@ -14,25 +14,28 @@ const int MAX_DIFF_16 = 1500;
 const double PROPORTION_OF_DIVIDING_PHI_BINS = 0.7;
 const float NORMTHR = 0.4;
 
-class HONVNW
+class HONVNW:public DetectionAlgorithm
 {
 public:
-	HONVNW() :winSize(64, 128), blockSize(16, 16), cellSize(8, 8), bin_numtheta(4), bin_numphi(9), HONV_difference(1),nlevels(64)
+	HONVNW() :winSize(64, 128), blockSize(16, 16), cellSize(8, 8), bin_numtheta(4), bin_numphi(9), HONV_difference(1)
 	{
 		cal_para();
 	}
 	HONVNW(cv::Size _winSize, cv::Size _blockSize, cv::Size _cellSize, int _HONV_diff = 1, int _bin_numtheta = 4, int _bin_numphi = 9,int _nlevels=64) :
-		winSize(_winSize), blockSize(_blockSize), cellSize(_cellSize), HONV_difference(_HONV_diff), bin_numtheta(_bin_numtheta), bin_numphi(bin_numphi),nlevels(_nlevels)
+		winSize(_winSize), blockSize(_blockSize), cellSize(_cellSize), HONV_difference(_HONV_diff), bin_numtheta(_bin_numtheta), bin_numphi(bin_numphi)
 	{
 		cal_para();
 	}
 
-	int getFeatureLen()const { return featureLen; }
-	void compute(cv::Mat& img, vector<float>& feature)const;
-	void setSvmDetector(cv::Ptr<cv::ml::SVM>& _svm);
-	void setSvmDetector(const string& xmlfile);
-	void detect(cv::Mat& img, vector<cv::Point>& foundLocations, vector<double>& weights, double hitThreshold = 0, cv::Size winStride = cv::Size(),const vector<cv::Point>& locations=vector<cv::Point>()) const;
-	void detectMultiScale(cv::Mat& img, vector<cv::Rect>& foundloacations, vector<double>& weights, double hitThreshold = 0, cv::Size winStride = cv::Size(), double scale = 1.05, double finalThreshold = 2.0, bool usemeanshift = false)const;
+	virtual int getFeatureLen()const { return featureLen; }
+	virtual void compute(const cv::Mat& img, vector<float>& feature)const;
+	virtual void setSvmDetector(const cv::Ptr<cv::ml::SVM>& _svm);
+	//virtual void setSvmDetector(const string& xmlfile);
+	virtual void loadSvmDetector(const string& xmlfile);
+	virtual void detect(const cv::Mat& img, vector<cv::Point>& foundLocations, vector<double>& weights, double hitThreshold = 0, cv::Size winStride = cv::Size(),const vector<cv::Point>& locations=vector<cv::Point>()) const;
+	virtual void detectMultiScale(const cv::Mat& img, vector<cv::Rect>& foundlocations, vector<double>& weights, double hitThreshold = 0, cv::Size winStride = cv::Size(), double nlevels = 64, double scale0 = 1.05, double finalThreshold = 2.0, bool usemeanshift = false)const;
+	virtual void detect(const cv::Mat& img, vector<cv::Point>& foundLocations, double hitThreshold = 0, cv::Size winStride = cv::Size(), const vector<cv::Point>& locations = vector<cv::Point>()) const;
+	virtual void detectMultiScale(const cv::Mat& img, vector<cv::Rect>& foundlocations, double hitThreshold = 0, cv::Size winStride = cv::Size(), double nlevels = 64, double scale0 = 1.05, double finalThreshold = 2.0, bool usemeanshift = false)const;
 
 	virtual ~HONVNW() { maskdx.release(); maskdy.release(); svm.release(); }
 public:
@@ -42,7 +45,7 @@ public:
 	cv::Size cellSize;
 	cv::Size blockSize;
 	cv::Size overlap;
-	int nlevels;
+	//int nlevels;
 
 private:
 	int HONV_difference;
@@ -67,7 +70,7 @@ private:
 
 private:
 	void cal_para();
-	void compute_dxdy(cv::Mat& src, cv::Mat& dximg, cv::Mat& dyimg)const;
+	void compute_dxdy(const cv::Mat& src, cv::Mat& dximg, cv::Mat& dyimg)const;
 	void compute_theta_phi(cv::Mat& dximg, cv::Mat& dyimg, arma::Mat<float>& theta, arma::Mat<float>& phi)const;
 
 	void compute_HistBin(arma::fmat& theta,arma::fmat& phi,arma::fcube& bincenter, arma::icube& binindex)const;

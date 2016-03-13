@@ -5,7 +5,7 @@ deque<cv::Mat> preProcessing::framequeue=deque<cv::Mat>();
 void preProcessing::pixelFilter(cv::Mat & src,cv::Mat& dst2)
 {
 	cv::Mat dst = src.clone();
-	dst.setTo(0, src < 500);
+	/*dst.setTo(0, src < 500);
 	dst.setTo(8000, src > 8000);
 
 	int width = src.cols;
@@ -20,7 +20,7 @@ void preProcessing::pixelFilter(cv::Mat & src,cv::Mat& dst2)
 	{
 		filterCollection[i] = new int[2];
 	}
-	//memset(filterCollection, 0, sizeof(int) * 2 * 24);
+	memset(filterCollection, 0, sizeof(int) * 2 * 24);
 	ushort *srcdata = (ushort*)dst.data;
 	ushort *dstdata = (ushort*)dst2.data;
 	int widthstep = dst.step1();
@@ -38,7 +38,7 @@ void preProcessing::pixelFilter(cv::Mat & src,cv::Mat& dst2)
 						filterCollection[i][j] = 0;
 					}
 				}
-				//memset(filterCollection, 0,  2 * 24);
+				memset(filterCollection, 0,  2 * 24);
 				int innerBandCount = 0;
 				int outerBandCount = 0;
 
@@ -54,12 +54,12 @@ void preProcessing::pixelFilter(cv::Mat & src,cv::Mat& dst2)
 							if (xSearch >= 0 && xSearch <= widthBound&&ySearch >= 0 && ySearch <= heightBound)
 							{
 								int searchindex = xSearch + ySearch*widthstep;
-								//uchar *rowdata = src.ptr<uchar>(ySearch);
+								uchar *rowdata = src.ptr<uchar>(ySearch);
 								if (srcdata[searchindex] != 0)
 								{
 									for (int i = 0; i < 24; ++i)
 									{
-										
+
 										if (filterCollection[i][0] == srcdata[searchindex])
 										{
 											++filterCollection[i][1];
@@ -85,7 +85,7 @@ void preProcessing::pixelFilter(cv::Mat & src,cv::Mat& dst2)
 					}
 				}
 
-				//filter
+				filter
 				if (innerBandCount >= innerBandThreshold || outerBandCount >= outerBandThreshold)
 				{
 					int frequency = 0;
@@ -108,14 +108,19 @@ void preProcessing::pixelFilter(cv::Mat & src,cv::Mat& dst2)
 			else
 				dstdata[depthindex] = srcdata[depthindex];
 		}
-	}
-	//medianBlur(dst2, dst2, 3);
-	for (int i = 0; i < 24; ++i)
-	{
-		delete[] filterCollection[i];
-	}
-	delete[] filterCollection;
+	}*/
+	////medianBlur(dst2, dst2, 3);
+	//for (int i = 0; i < 24; ++i)
+	//{
+	//	delete[] filterCollection[i];
+	//}
+	//delete[] filterCollection;
 
+	dst2 = dst;
+	double minv, maxv;
+
+	minMaxLoc(dst2, &minv, &maxv);
+	dst2.setTo((ushort)maxv, dst2 == 0);
 	/*if (framequeue.size() == 4)
 	{
 		framequeue.pop_front();

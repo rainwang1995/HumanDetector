@@ -4,20 +4,7 @@
 #include <omp.h>
 using namespace cv;
 
-template<typename _Tp> static inline _Tp gcd(_Tp a, _Tp b)
-{
-	if (a < b)
-		std::swap(a, b);
-	while (b > 0)
-	{
-		_Tp r = a % b;
-		a = b;
-		b = r;
-	}
-	return a;
-}
-
-void HONVNW::compute(cv::Mat & img, vector<float>& feature)const
+void HONVNW::compute(const cv::Mat & img, vector<float>& feature)const
 {
 	Mat dx, dy;
 	compute_dxdy(img, dx, dy);
@@ -45,18 +32,23 @@ void HONVNW::compute(cv::Mat & img, vector<float>& feature)const
 	feature = arma::conv_to<vector<float> >::from(hist);
 }
 
-void HONVNW::setSvmDetector(cv::Ptr<cv::ml::SVM>& _svm)
+void HONVNW::setSvmDetector(const cv::Ptr<cv::ml::SVM>& _svm)
 {
 	//svm = cv::ml::SVM::create();
 	svm = _svm;
 }
 
-void HONVNW::setSvmDetector(const string& xmlfile)
+//void HONVNW::setSvmDetector(const string& xmlfile)
+//{
+//	svm = ml::StatModel::load<ml::SVM>(xmlfile);
+//}
+
+void HONVNW::loadSvmDetector(const string & xmlfile)
 {
 	svm = ml::StatModel::load<ml::SVM>(xmlfile);
 }
 
-void HONVNW::detect(cv::Mat& img, vector<Point>& foundLocations, vector<double>& weights, double hisThreshold /*= 0*/, cv::Size winStride, const vector<Point>& locations)const
+void HONVNW::detect(const cv::Mat& img, vector<Point>& foundLocations, vector<double>& weights, double hisThreshold /*= 0*/, cv::Size winStride, const vector<Point>& locations)const
 {
 	foundLocations.clear();
 	if (svm->empty())
@@ -156,6 +148,12 @@ void HONVNW::detect(cv::Mat& img, vector<Point>& foundLocations, vector<double>&
 	
 }
 
+void HONVNW::detect(const cv::Mat& img, vector<cv::Point>& foundLocations, double hitThreshold /*= 0*/, cv::Size winStride /*= cv::Size()*/, const vector<cv::Point>& locations /*= vector<cv::Point>()*/) const
+{
+	vector<double> weights;
+	detect(img, foundLocations, weights, hitThreshold, winStride, locations);
+}
+
 class Parallel_Detection :public ParallelLoopBody
 {
 private:
@@ -170,7 +168,7 @@ private:
 	vector<double>* scales;
 
 public:
-	Parallel_Detection(const HONVNW* _honv, Mat& _img, double _hitThreshold, Size _winStride, const double* _levelScale,
+	Parallel_Detection(const HONVNW* _honv, const Mat& _img, double _hitThreshold, Size _winStride, const double* _levelScale,
 		vector<Rect>* _vec, Mutex* _mtx, vector<double>* _weights=0, vector<double>* _scales=0)
 	{
 		honv = _honv;
@@ -236,8 +234,7 @@ public:
 };
 
 
-
-void HONVNW::detectMultiScale(cv::Mat& img, vector<cv::Rect>& foundlocations, vector<double>& weights, double hitThreshold /*= 0*/, cv::Size winStride /*= cv::Size()*/, double scale0 /*= 1.05*/, double finalThreshold,bool usemeanshift)const
+void HONVNW::detectMultiScale(const cv::Mat& img, vector<cv::Rect>& foundlocations, vector<double>& weights, double hitThreshold /*= 0*/, cv::Size winStride /*= cv::Size()*/, double nlevels /*= 64*/, double scale0 /*= 1.05*/, double finalThreshold /*= 2.0*/, bool usemeanshift /*= false*/) const
 {
 	if (svm->empty())
 	{
@@ -247,11 +244,11 @@ void HONVNW::detectMultiScale(cv::Mat& img, vector<cv::Rect>& foundlocations, ve
 	double scale = 1.;
 	int levels = 0;
 	vector<double> levelScale;
-	for (levels = 0; levels < nlevels;++levels)
+	for (levels = 0; levels < nlevels; ++levels)
 	{
 		levelScale.push_back(scale);
-		if (cvRound(img.cols/scale)<winSize.width||cvRound(img.rows/scale)<winSize.height
-			||scale0<=1)
+		if (cvRound(img.cols / scale) < winSize.width || cvRound(img.rows / scale) < winSize.height
+			|| scale0 <= 1)
 		{
 			break;
 		}
@@ -286,22 +283,13 @@ void HONVNW::detectMultiScale(cv::Mat& img, vector<cv::Rect>& foundlocations, ve
 	{
 		groupRectangles(foundlocations, weights, (int)finalThreshold, 0.2);
 	}
+}
 
-	//debug
-	//cout << "before detect function:" << endl;
-	//for (int j = 0; j < foundlocations.size(); ++j)
-	//{
-	//	Rect r = foundlocations[j];
-	//	cout << r.x << " " << r.y << " " << r.width << " " << r.height << endl;
-	//	if (r.x < 0)
-	//		r.x = 0;
-	//	if (r.y < 0)
-	//		r.y = 0;
-	//	if (r.x + r.width > img.cols)
-	//		r.width = img.cols - r.x;
-	//	if (r.y + r.height > img.rows)
-	//		r.height = img.rows - r.y;
-	//}
+void HONVNW::detectMultiScale(const cv::Mat& img, vector<cv::Rect>& foundlocations, double hitThreshold /*= 0*/, cv::Size winStride /*= cv::Size()*/,
+	double nlevels /*= 64*/, double scale0 /*= 1.05*/, double finalThreshold /*= 2.0*/, bool usemeanshift /*= false*/) const
+{
+	vector<double> weights;
+	detectMultiScale(img, foundlocations, weights, hitThreshold, winStride, nlevels, scale0, finalThreshold, usemeanshift);
 }
 
 void HONVNW::cal_para()
@@ -335,7 +323,7 @@ void HONVNW::cal_para()
 	//cout << maskdx << endl;
 }
 
-void HONVNW::compute_dxdy(cv::Mat & src, cv::Mat & dximg, cv::Mat & dyimg)const
+void HONVNW::compute_dxdy(const cv::Mat & src, cv::Mat & dximg, cv::Mat & dyimg)const
 {
 	filter2D(src, dximg, maskdx.depth(), maskdx);
 	filter2D(src, dyimg, maskdy.depth(), maskdy);
