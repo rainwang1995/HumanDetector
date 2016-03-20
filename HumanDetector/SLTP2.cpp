@@ -1,31 +1,27 @@
-#include "SLTP.h"
+#include "SLTP2.h"
 #include <iterator>
 using namespace cv;
 
-void SLTP::compute(const Mat& img, vector<float>& features) const
+void SLTP2::compute(const Mat& img, vector<float>& features) const
 {
 	CV_Assert(img.size() == winSize);
 
 	Mat dx, dy;
 	compute_dxdy(img, dx, dy);
 
-	Mat signdx, signdy;
-	compute_sign(dx, signdx);
-	compute_sign(dy, signdy);
-
-	compute_histwin(signdx, signdy, features);
+	compute_histwin_thr(dx, dy, features);
 }
 
-void SLTP::setDefaultParams()
+void SLTP2::setDefaultParams()
 {
 	winSize = Size(64, 128);
 	cellSize = Size(8, 8);
-	signThreshold = 30;	
+	signThreshold = 30;
 	//nlevels = 64;
 	//scale0 = 1.05;
 }
 
-void SLTP::cal_params()
+void SLTP2::cal_params()
 {
 	numCellC = winSize.height / cellSize.height;
 	numCellR = winSize.width / cellSize.width;
@@ -45,7 +41,7 @@ void SLTP::cal_params()
 	featurelen = 9 * numCellPerWin;
 
 	//set sign array
-	for (int i = 0,p=0; i < 3;++i)
+	for (int i = 0, p = 0; i < 3; ++i)
 	{
 		for (int j = 0; j < 3; ++j, ++p)
 		{
@@ -54,29 +50,29 @@ void SLTP::cal_params()
 	}
 }
 
-void SLTP::compute_dxdy(const Mat& img, Mat& dx, Mat& dy) const
+void SLTP2::compute_dxdy(const Mat& img, Mat& dx, Mat& dy) const
 {
 	filter2D(img, dx, CV_32FC1, maskdx);
 	filter2D(img, dy, CV_32FC1, maskdy);
 }
 
-void SLTP::compute_sign(const Mat& dimg, Mat& signimg) const
+void SLTP2::compute_sign(const Mat& dimg, Mat& signimg, int thr)const
 {
-	signimg=Mat::zeros(dimg.size(), CV_8SC1);
+	signimg = Mat::zeros(dimg.size(), CV_8SC1);
 
-	signimg.setTo(-1, dimg <= -signThreshold);
-	signimg.setTo(1, dimg >= signThreshold);
+	signimg.setTo(-1, dimg <= -thr);
+	signimg.setTo(1, dimg >= thr);
 }
 
-void SLTP::compute_histcell(const Mat& signimgx, const Mat& signimgy, vector<float>& hist) const
+void SLTP2::compute_histcell(const Mat& signimgx, const Mat& signimgy, vector<float>& hist) const
 {
-	CV_Assert(signimgx.rows == signimgy.rows&&signimgx.cols==signimgy.cols);
+	CV_Assert(signimgx.rows == signimgy.rows&&signimgx.cols == signimgy.cols);
 	hist.clear();
-	hist.resize(9,0);
+	hist.resize(9, 0);
 
-	for (int i = 0;i<signimgx.rows;++i)
+	for (int i = 0; i<signimgx.rows; ++i)
 	{
-		for (int j = 0; j < signimgx.cols;++j)
+		for (int j = 0; j < signimgx.cols; ++j)
 		{
 			int x = signimgx.at<char>(i, j);
 			int y = signimgy.at<char>(i, j);
@@ -87,7 +83,7 @@ void SLTP::compute_histcell(const Mat& signimgx, const Mat& signimgy, vector<flo
 	}
 }
 
-void SLTP::compute_histcell(const Mat& signimgx, const Mat& signimgy, float* hist) const
+void SLTP2::compute_histcell(const Mat& signimgx, const Mat& signimgy, float* hist) const
 {
 	CV_Assert(signimgx.rows == signimgy.rows&&signimgx.cols == signimgy.cols);
 
@@ -108,18 +104,29 @@ void SLTP::compute_histcell(const Mat& signimgx, const Mat& signimgy, float* his
 	}
 }
 
-void SLTP::compute_histwin(const Mat& signimgx, const Mat& signimgy, vector<float>& hist) const
+void SLTP2::compute_histwin_thr(const cv::Mat& imgdx, const cv::Mat& imgdy, vector<float>& hist) const
 {
-	CV_Assert(signimgx.rows == signimgy.rows&&signimgx.cols == signimgy.cols);
+	CV_Assert(imgdx.rows == imgdy.rows&&imgdx.cols == imgdy.cols);
 	hist.clear();
 
-	int numCellcols = signimgx.cols / cellSize.width;
-	int numCellrows = signimgx.rows / cellSize.height;
+	int numCellcols = imgdy.cols / cellSize.width;
+	int numCellrows = imgdy.rows / cellSize.height;
 
-	hist.resize(9* numCellcols*numCellrows, 0);
+	hist.resize(9 * numCellcols*numCellrows, 0);
 
+	//cout << imgdx << endl;
+
+	double sumx = sum(abs(imgdx))[0];
+	double sumy = sum(abs(imgdy))[0];
+
+	int thx = round(sumx / (imgdx.size().area()));
+	int thy = round(sumy / (imgdy.size().area()));
+
+	Mat signimgx, signimgy;
+	compute_sign(imgdx, signimgx, thx);
+	compute_sign(imgdy, signimgy, thy);
 	//scan all cells
-//#pragma omp parallel
+	//#pragma omp parallel
 	{
 		//Mat cellx, celly;
 		for (int i = 0; i < numCellrows; ++i)
@@ -138,10 +145,10 @@ void SLTP::compute_histwin(const Mat& signimgx, const Mat& signimgy, vector<floa
 	}
 }
 
-void SLTP::groupRectangles(vector<cv::Rect>& rectList, vector<double>& weights, int groupThreshold, double eps) const
+void SLTP2::groupRectangles(vector<cv::Rect>& rectList, vector<double>& weights, int groupThreshold, double eps) const
 {
-	if (groupThreshold <= 0 || rectList.empty()||rectList.size()==1)
-	//if (groupThreshold <= 0 || rectList.empty())
+	if (groupThreshold <= 0 || rectList.empty() || rectList.size() == 1)
+		//if (groupThreshold <= 0 || rectList.empty())
 
 	{
 		return;
@@ -218,46 +225,34 @@ void SLTP::groupRectangles(vector<cv::Rect>& rectList, vector<double>& weights, 
 	}
 }
 
-void SLTP::compute_img(const cv::Mat & img, vector<float>& features) const
-{
-	Mat dx, dy;
-	compute_dxdy(img, dx, dy);
-
-	Mat signdx, signdy;
-	compute_sign(dx, signdx);
-	compute_sign(dy, signdy);
-
-	compute_histwin(signdx, signdy, features);
-}
-
-void SLTP::get_winfeature(vector<float>& featuresimg, vector<float>& featureswin, cv::Point& startpos, int cellimgcols) const
+void SLTP2::get_winfeature(vector<float>& featuresimg, vector<float>& featureswin, cv::Point& startpos, int cellimgcols) const
 {
 	featureswin.clear();
-	featureswin.resize(featurelen,0);
+	featureswin.resize(featurelen, 0);
 
 	int cellfeaturelen = 9 * numCellR;
-	for (int i = 0; i < numCellC;++i)
+	for (int i = 0; i < numCellC; ++i)
 	{
-		int sindex = cellimgcols*(startpos.y+i) + startpos.x;
+		int sindex = cellimgcols*(startpos.y + i) + startpos.x;
 		sindex *= 9;
 		memcpy(&featureswin[i*cellfeaturelen], &featuresimg[sindex], sizeof(float)*cellfeaturelen);
 	}
 }
 
-void SLTP::setSvmDetector(const cv::Ptr<cv::ml::SVM>& _svm)
+void SLTP2::setSvmDetector(const cv::Ptr<cv::ml::SVM>& _svm)
 {
 	sltpsvm = _svm;
 }
 
 
-void SLTP::loadSvmDetector(const string & xmlfile)
+void SLTP2::loadSvmDetector(const string & xmlfile)
 {
 	sltpsvm = ml::StatModel::load<ml::SVM>(xmlfile);
 	//svmvec.clear();
-	//Mat vec = sltpsvm->getSupportVectors();
-	////int dim = sltpsvm->getVarCount();
+	//Mat vec = SLTP2svm->getSupportVectors();
+	////int dim = SLTP2svm->getVarCount();
 	//Mat alpha, sdivx;
-	//rho = sltpsvm->getDecisionFunction(0, alpha, sdivx);
+	//rho = SLTP2svm->getDecisionFunction(0, alpha, sdivx);
 	//Mat resultMat = Mat::zeros(1, featurelen, CV_32FC1);
 	////cout << alpha << endl;
 	//resultMat = -1*vec;
@@ -269,7 +264,7 @@ void SLTP::loadSvmDetector(const string & xmlfile)
 	//svmvec.push_back(rho);
 }
 
-void SLTP::detect(const cv::Mat& img, vector<cv::Point>& foundlocations, vector<double>& weights, double hitThreshold/*=0*/, cv::Size winStride/*=cv::Size()*/, const vector<cv::Point>& locations/*=vector<cv::Point>()*/) const
+void SLTP2::detect(const cv::Mat& img, vector<cv::Point>& foundlocations, vector<double>& weights, double hitThreshold/*=0*/, cv::Size winStride/*=cv::Size()*/, const vector<cv::Point>& locations/*=vector<cv::Point>()*/) const
 {
 	foundlocations.clear();
 	if (sltpsvm->empty())
@@ -310,8 +305,6 @@ void SLTP::detect(const cv::Mat& img, vector<cv::Point>& foundlocations, vector<
 	int numwinR = (paddedImgSize.width - winSize.width) / winStride.width + 1;
 	int numwinC = (paddedImgSize.height - winSize.height) / winStride.height + 1;
 
-	vector<float> featuresimg;
-	compute_img(paddedimg, featuresimg);
 	int numCellcols = paddedimg.cols / cellSize.width;
 	int numCellrows = paddedimg.rows / cellSize.height;
 
@@ -344,55 +337,53 @@ void SLTP::detect(const cv::Mat& img, vector<cv::Point>& foundlocations, vector<
 	else
 	{
 		//scan over windows
-//#pragma omp parallel
-	{
-		Mat winimg;
-		for (int j = 0; j < numwinC; ++j)
+		//#pragma omp parallel
 		{
-			for (int i = 0; i < numwinR; ++i)
+			Mat winimg;
+			for (int j = 0; j < numwinC; ++j)
 			{
-				Point pt0;
-				winimg = paddedimg(Rect(i*winStride.width, j*winStride.height, winSize.width, winSize.height));
-
-				int cellindexrow = j*winStride.height / cellSize.height;
-				int cellindexcol = i*winStride.width / cellSize.width;
-
-				pt0.x = i*winStride.width - padding.width;
-				pt0.y = j*winStride.height - padding.height;;
-
-				vector<float> feature;
-				Point startpos(cellindexcol, cellindexrow);
-				get_winfeature(featuresimg, feature, startpos, numCellcols);
-
-				//compute(winimg, feature);
-
-				Mat result;
-				//sltpsvm->predict(winimg,cv::displayStatusBar::)
-				float response = sltpsvm->predict(feature, result, ml::StatModel::RAW_OUTPUT);
-				response = result.at<float>(0);
-				
-				if (response<=-hitThreshold)
+				for (int i = 0; i < numwinR; ++i)
 				{
-					foundlocations.push_back(pt0);
-					weights.push_back(-response);
-				}
+					Point pt0;
+					winimg = paddedimg(Rect(i*winStride.width, j*winStride.height, winSize.width, winSize.height));
 
+					int cellindexrow = j*winStride.height / cellSize.height;
+					int cellindexcol = i*winStride.width / cellSize.width;
+
+					pt0.x = i*winStride.width - padding.width;
+					pt0.y = j*winStride.height - padding.height;;
+
+					vector<float> feature;
+					
+					compute(winimg, feature);
+
+					Mat result;
+					//SLTP2svm->predict(winimg,cv::displayStatusBar::)
+					float response = sltpsvm->predict(feature, result, ml::StatModel::RAW_OUTPUT);
+					response = result.at<float>(0);
+
+					if (response <= -hitThreshold)
+					{
+						foundlocations.push_back(pt0);
+						weights.push_back(-response);
+					}
+
+				}
 			}
 		}
 	}
-	}
 }
 
-void SLTP::detect(const cv::Mat& img, vector<cv::Point>& foundLocations, double hitThreshold /*= 0*/, cv::Size winStride /*= cv::Size()*/, const vector<cv::Point>& locations /*= vector<cv::Point>()*/) const
+void SLTP2::detect(const cv::Mat& img, vector<cv::Point>& foundLocations, double hitThreshold /*= 0*/, cv::Size winStride /*= cv::Size()*/, const vector<cv::Point>& locations /*= vector<cv::Point>()*/) const
 {
 	vector<double> weights;
 	detect(img, foundLocations, weights, hitThreshold, winStride, locations);
 }
 
-class Parallel_Detection_SLTP :public ParallelLoopBody
+class Parallel_Detection_SLTP2 :public ParallelLoopBody
 {
 private:
-	const SLTP* sltp;
+	const SLTP2* sltp2;
 	Mat img;
 	double hitThreshold;
 	Size winStride;
@@ -403,10 +394,10 @@ private:
 	vector<double>* scales;
 
 public:
-	Parallel_Detection_SLTP(const SLTP* _sltp, const Mat& _img, double _hitThreshold, Size _winStride, const double* _levelScale,
+	Parallel_Detection_SLTP2(const SLTP2* _SLTP2, const Mat& _img, double _hitThreshold, Size _winStride, const double* _levelScale,
 		vector<Rect>* _vec, Mutex* _mtx, vector<double>* _weights = 0, vector<double>* _scales = 0)
 	{
-		sltp = _sltp;
+		sltp2 = _SLTP2;
 		img = _img;
 		hitThreshold = _hitThreshold;
 		winStride = _winStride;
@@ -426,7 +417,7 @@ public:
 		Mat smallerImgBuf(maxSz, img.type());
 		vector<Point> locations;
 		vector<double> hitsWeights;
-		//cout << "sltp" << endl;
+		//cout << "SLTP2" << endl;
 		for (i = i1; i < i2; i++)
 		{
 			double scale = levelScale[i];
@@ -435,9 +426,9 @@ public:
 			if (sz == img.size())
 				smallerImg = Mat(sz, img.type(), img.data, img.step);
 			else
-				resize(img, smallerImg, sz, 0.0, 0.0,INTER_NEAREST);
-			sltp->detect(smallerImg, locations,hitsWeights, hitThreshold, winStride);
-			Size scaledWinSize = Size(cvRound(sltp->winSize.width*scale), cvRound(sltp->winSize.height*scale));
+				resize(img, smallerImg, sz, 0.0, 0.0, INTER_NEAREST);
+			sltp2->detect(smallerImg, locations, hitsWeights, hitThreshold, winStride);
+			Size scaledWinSize = Size(cvRound(sltp2->winSize.width*scale), cvRound(sltp2->winSize.height*scale));
 
 			mtx->lock();
 
@@ -469,7 +460,7 @@ public:
 	}
 };
 
-void SLTP::detectMultiScale(const cv::Mat& img, vector<cv::Rect>& foundlocations, vector<double>& weights, double hitThreshold /*= 0*/, cv::Size winStride /*= cv::Size()*/, double nlevels/*=64*/, double scale0 /*= 1.1*/, double finalThreshold /*= 2.0*/, bool usemeanshift /*= false*/) const
+void SLTP2::detectMultiScale(const cv::Mat& img, vector<cv::Rect>& foundlocations, vector<double>& weights, double hitThreshold /*= 0*/, cv::Size winStride /*= cv::Size()*/, double nlevels/*=64*/, double scale0 /*= 1.1*/, double finalThreshold /*= 2.0*/, bool usemeanshift /*= false*/) const
 {
 	if (sltpsvm->empty())
 	{
@@ -503,7 +494,7 @@ void SLTP::detectMultiScale(const cv::Mat& img, vector<cv::Rect>& foundlocations
 
 	Mutex mtx;
 	parallel_for_(Range(0, levelScale.size()),
-		Parallel_Detection_SLTP(this, img, hitThreshold, winStride, &levelScale[0], &foundlocations, &mtx, &weights, &foundScales));
+		Parallel_Detection_SLTP2(this, img, hitThreshold, winStride, &levelScale[0], &foundlocations, &mtx, &weights, &foundScales));
 
 	/*foundScales.clear();
 	std::copy(tempScales.begin(), tempScales.end(), back_inserter(foundScales));
@@ -522,7 +513,7 @@ void SLTP::detectMultiScale(const cv::Mat& img, vector<cv::Rect>& foundlocations
 	}
 }
 
-void SLTP::detectMultiScale(const cv::Mat& img, vector<cv::Rect>& foundlocations, double hitThreshold /*= 0*/, cv::Size winStride /*= cv::Size()*/, double nlevels /*= 64*/, double scale0 /*= 1.05*/, double finalThreshold /*= 2.0*/, bool usemeanshift /*= false*/) const
+void SLTP2::detectMultiScale(const cv::Mat& img, vector<cv::Rect>& foundlocations, double hitThreshold /*= 0*/, cv::Size winStride /*= cv::Size()*/, double nlevels /*= 64*/, double scale0 /*= 1.05*/, double finalThreshold /*= 2.0*/, bool usemeanshift /*= false*/) const
 {
 	vector<double> weights;
 	detectMultiScale(img, foundlocations, weights, hitThreshold, winStride, nlevels, scale0, finalThreshold, usemeanshift);

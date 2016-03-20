@@ -35,7 +35,7 @@ public:
 	virtual void detect(const cv::Mat& img, vector<cv::Point>& foundLocations, vector<double>& weights, double hitThreshold = 0, cv::Size winStride = cv::Size(),const vector<cv::Point>& locations=vector<cv::Point>()) const;
 	virtual void detectMultiScale(const cv::Mat& img, vector<cv::Rect>& foundlocations, vector<double>& weights, double hitThreshold = 0, cv::Size winStride = cv::Size(), double nlevels = 64, double scale0 = 1.05, double finalThreshold = 2.0, bool usemeanshift = false)const;
 	virtual void detect(const cv::Mat& img, vector<cv::Point>& foundLocations, double hitThreshold = 0, cv::Size winStride = cv::Size(), const vector<cv::Point>& locations = vector<cv::Point>()) const;
-	virtual void detectMultiScale(const cv::Mat& img, vector<cv::Rect>& foundlocations, double hitThreshold = 0, cv::Size winStride = cv::Size(), double nlevels = 64, double scale0 = 1.1, double finalThreshold = 2.0, bool usemeanshift = false)const;
+	virtual void detectMultiScale(const cv::Mat& img, vector<cv::Rect>& foundlocations, double hitThreshold = 0, cv::Size winStride = cv::Size(), double nlevels = 64, double scale0 = 1.05, double finalThreshold = 2.0, bool usemeanshift = false)const;
 
 	virtual ~HONVNW() { maskdx.release(); maskdy.release(); svm.release(); }
 public:
@@ -67,21 +67,21 @@ private:
 	cv::Mat maskdy;
 
 	cv::Ptr<cv::ml::SVM> svm;
-	//vector<float> svmvec;
-	//double rho;
+	vector<float> svmvec;
+	double rho;
 private:
 	void cal_para();
 	void compute_dxdy(const cv::Mat& src, cv::Mat& dximg, cv::Mat& dyimg)const;
-	void compute_theta_phi(cv::Mat& dximg, cv::Mat& dyimg, cv::Mat& theta, cv::Mat& phi)const;
+	void compute_theta_phi(cv::Mat& dximg, cv::Mat& dyimg, arma::Mat<float>& theta, arma::Mat<float>& phi)const;
 
-	void compute_HistBin(cv::Mat& theta, cv::Mat& phi, cv::Mat& bincenter, cv::Mat& binindex)const;
-	void compute_HistBin(cv::Mat& x, float binwidth, cv::Mat& bincenter, cv::Mat& binindexx)const;
+	void compute_HistBin(arma::fmat& theta,arma::fmat& phi,arma::fcube& bincenter, arma::icube& binindex)const;
+	void compute_HistBin(arma::fmat& x, float binwidth, arma::fmat& bincenter, arma::imat& binindex)const;
 
-	void compute_hist_cell(cv::Mat & binindex, float* cellhist)const;
-	void compute_hist_block(cv::Mat & binindex, float* blockhist)const;
-	void normliseblock(float* blockhist)const;
-	void compute_hist(cv::Mat& binindex, vector<float>& hist)const;
-	void compute_win(cv::Mat& src, cv::Mat& binindex)const;
+	void compute_hist_cell(arma::icube& binindex, arma::ivec& cellhist)const;
+	void compute_hist_block(arma::icube& binindex, arma::fvec& blockhist)const;
+
+	void compute_hist(arma::icube& binindex, arma::fvec& hist)const;
+
 	void groupRectangles(vector<cv::Rect>& rectList, vector<double>& weights, int groupThreshold, double eps) const;
 };
 

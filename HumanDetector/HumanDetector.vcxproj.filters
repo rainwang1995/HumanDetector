@@ -42,6 +42,24 @@
     <ClInclude Include="HDD.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="PSLTP.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="LDPK.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="Graphpropagation.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="our_fmm.hpp">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="SLTPB.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="SLTP2.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="preprocess.cpp">
@@ -66,6 +84,24 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="HDD.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="PSLTP.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="LDPK.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="Graphpropagation.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="our_fmm.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="SLTPB.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="SLTP2.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

@@ -1,29 +1,33 @@
 #include "preprocess.h"
+#include <omp.h>
+#include "our_fmm.hpp"
 //using namespace cv;
+
+
 deque<cv::Mat> preProcessing::framequeue=deque<cv::Mat>();
 
-void preProcessing::pixelFilter(cv::Mat & src,cv::Mat& dst2)
+void preProcessing::pixelFilter(cv::Mat & src, cv::Mat& dst2)
 {
 	cv::Mat dst = src.clone();
-	/*dst.setTo(0, src < 500);
-	dst.setTo(8000, src > 8000);
-
+	
+//
 	int width = src.cols;
 	int height = src.rows;
 
 	int widthBound = width - 1;
 	int heightBound = height - 1;
 	dst2 = cv::Mat::zeros(src.size(), CV_16UC1);
-
+	//dst2 = dst;
 	int **filterCollection = new int *[24];
 	for (int i = 0; i < 24; ++i)
 	{
 		filterCollection[i] = new int[2];
 	}
-	memset(filterCollection, 0, sizeof(int) * 2 * 24);
+
 	ushort *srcdata = (ushort*)dst.data;
 	ushort *dstdata = (ushort*)dst2.data;
 	int widthstep = dst.step1();
+//#pragma omp parallel for
 	for (int rowindex = 0; rowindex < height; ++rowindex)
 	{
 		for (int colindex = 0; colindex < width; ++colindex)
@@ -38,7 +42,7 @@ void preProcessing::pixelFilter(cv::Mat & src,cv::Mat& dst2)
 						filterCollection[i][j] = 0;
 					}
 				}
-				memset(filterCollection, 0,  2 * 24);
+
 				int innerBandCount = 0;
 				int outerBandCount = 0;
 
@@ -85,7 +89,7 @@ void preProcessing::pixelFilter(cv::Mat & src,cv::Mat& dst2)
 					}
 				}
 
-				filter
+
 				if (innerBandCount >= innerBandThreshold || outerBandCount >= outerBandThreshold)
 				{
 					int frequency = 0;
@@ -108,19 +112,22 @@ void preProcessing::pixelFilter(cv::Mat & src,cv::Mat& dst2)
 			else
 				dstdata[depthindex] = srcdata[depthindex];
 		}
-	}*/
-	////medianBlur(dst2, dst2, 3);
-	//for (int i = 0; i < 24; ++i)
-	//{
-	//	delete[] filterCollection[i];
-	//}
-	//delete[] filterCollection;
+	}
+//
+//	dst.setTo(8000, src > 8000);
+	for (int i = 0; i < 24; ++i)
+	{
+		delete[] filterCollection[i];
+	}
+	delete[] filterCollection;
 
-	dst2 = dst;
-	double minv, maxv;
+	//dst2 = dst;
+	//medianBlur(dst2, dst2, 3);
 
-	minMaxLoc(dst2, &minv, &maxv);
-	dst2.setTo((ushort)maxv, dst2 == 0);
+	//double minv, maxv;
+
+	//minMaxLoc(dst2, &minv, &maxv);
+	//dst2.setTo((ushort)maxv, dst2 == 0);
 	/*if (framequeue.size() == 4)
 	{
 		framequeue.pop_front();
@@ -156,7 +163,45 @@ void preProcessing::contextFilter(cv::Mat & src, cv::Mat & dst)
 				}
 			}
 		}
-	}
-
-	
+	}	
 }
+
+void preProcessing::inpaintrawdepth(cv::Mat& src, cv::Mat& dst, double inpaintRange, float alpha)
+{
+	inpaint(src, src==0,dst, inpaintRange, alpha);
+}
+
+//近邻补洞
+void filterfunc1(cv::Mat& src, cv::Mat& dst)
+{
+	preProcessing::pixelFilter(src, dst);
+}
+
+//用最大值填充
+void filterfunc2(cv::Mat& src, cv::Mat& dst)
+{
+	dst = src.clone();
+	double minv, maxv;
+
+	minMaxLoc(dst, &minv, &maxv);
+	dst.setTo((ushort)maxv, dst == 0);
+	medianBlur(dst, dst, 3);
+}
+
+//inpaint
+void filterfunc3(cv::Mat& src, cv::Mat& dst)
+{
+	preProcessing::inpaintrawdepth(src, dst, 3, 0.5);
+}
+
+// 最近邻填充后，最大值填充
+void filterfunc4(cv::Mat& src, cv::Mat& dst)
+{
+	preProcessing::pixelFilter(src, dst);
+	double minv, maxv;
+
+	minMaxLoc(dst, &minv, &maxv);
+	dst.setTo((ushort)maxv, dst == 0);
+}
+
+//

@@ -33,14 +33,16 @@ public:
 		vector<double>& weights, double hitThreshold = 0, cv::Size winStride = cv::Size(), const vector<cv::Point>& locations = vector<cv::Point>())const;
 
 	virtual void detectMultiScale(const cv::Mat& img, vector<cv::Rect>& foundlocations, vector<double>& weights, double hitThreshold = 0, 
-		cv::Size winStride = cv::Size(), double nlevels = 64, double scale0 = 1.05, double finalThreshold = 2.0, bool usemeanshift = false)const;
+		cv::Size winStride = cv::Size(), double nlevels = 64, double scale0 = 1.1, double finalThreshold = 2.0, bool usemeanshift = false)const;
 
 	virtual void detect(const cv::Mat& img, vector<cv::Point>& foundLocations, double hitThreshold = 0, cv::Size winStride = cv::Size(), 
 		const vector<cv::Point>& locations = vector<cv::Point>()) const;
 	virtual void detectMultiScale(const cv::Mat& img, vector<cv::Rect>& foundlocations, double hitThreshold = 0, cv::Size winStride = cv::Size(), 
 		double nlevels = 64, double scale0 = 1.05, double finalThreshold = 2.0, bool usemeanshift = false)const;
 
-	virtual ~LTDP() { masks.clear(); ltdpsvm.release(); }
+	virtual void set_signThreshold(const int _pthreshold) { pthreshold = _pthreshold; }
+
+	virtual ~LTDP() { masks.clear(); ltdpsvm.release();}
 public:
 	cv::Size blockSize;
 	cv::Size winSize;
@@ -55,9 +57,10 @@ private:
 	int pthreshold;
 
 	cv::Mat lookUpTable;
+	cv::Mat lookUpTable2;
 	cv::Ptr<cv::ml::SVM> ltdpsvm;
-	vector<float> svmvec;
-	double rho;
+	//vector<float> svmvec;
+	//double rho;
 private:
 	void setDefaultParams();
 	void cal_params();

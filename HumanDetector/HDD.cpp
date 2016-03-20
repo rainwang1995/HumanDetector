@@ -398,11 +398,33 @@ Rect HDDCache::getWindow(Size imageSize, Size winStride, int idx) const
 void HDD::setSvmDetector(const cv::Ptr<cv::ml::SVM>& _svm)
 {
 	hddsvm = _svm;
+	svmvec.clear();
+	Mat vec = hddsvm->getSupportVectors();
+	//int dim = sltpsvm->getVarCount();
+	Mat alpha, sdivx;
+	rho = hddsvm->getDecisionFunction(0, alpha, sdivx);
+	Mat resultMat = -1 * vec;
+	for (int i = 0; i < vec.cols; ++i)
+	{
+		svmvec.push_back(resultMat.at<float>(0, i));
+	}
+	svmvec.push_back(rho);
 }
 
 void HDD::loadSvmDetector(const string& xmlfile)
 {
 	hddsvm = ml::StatModel::load <ml::SVM>(xmlfile);
+	svmvec.clear();
+	Mat vec = hddsvm->getSupportVectors();
+	//int dim = sltpsvm->getVarCount();
+	Mat alpha, sdivx;
+	rho = hddsvm->getDecisionFunction(0, alpha, sdivx);
+	Mat resultMat = -1 * vec;
+	for (int i = 0; i < vec.cols; ++i)
+	{
+		svmvec.push_back(resultMat.at<float>(0, i));
+	}
+	svmvec.push_back(rho);
 }
 
 void HDD::compute(const cv::Mat& img, vector<float>& features) const
@@ -433,8 +455,8 @@ void HDD::compute(const cv::Mat& img, vector<float>& features) const
 
 		Point pt0;
 
-			pt0 = cache.getWindow(paddedImgSize, winStride, (int)i).tl() - Point(padding);
-			CV_Assert(pt0.x % cacheStride.width == 0 && pt0.y % cacheStride.height == 0);
+		pt0 = cache.getWindow(paddedImgSize, winStride, (int)i).tl() - Point(padding);
+		CV_Assert(pt0.x % cacheStride.width == 0 && pt0.y % cacheStride.height == 0);
 		for (int j = 0; j < nblocks; j++)
 		{
 			const HDDCache::BlockData& bj = blockData[j];
@@ -478,7 +500,7 @@ void HDD::detect(const cv::Mat& img, vector<cv::Point>& foundlocations,
 	size_t dsize = getFeatureLen();
 
 	vector<float> winHist(blockHistogramSize*nblocks);
-
+	vector<float> blockHist(blockHistogramSize);
 	for (size_t i = 0; i < nwindows; i++)
 	{
 		Point pt0;
@@ -497,20 +519,39 @@ void HDD::detect(const cv::Mat& img, vector<cv::Point>& foundlocations,
 		
 		int j, k;
 
-		for (j = 0; j < nblocks; j++)
+		const float* svmVec = &svmvec[0];
+		for (j = 0; j < nblocks; j++,svmvec)
 		{
 			const HDDCache::BlockData& bj = blockData[j];
 			Point pt = pt0 + bj.imgOffset;
 
-			cache.getBlock(pt, &winHist[j*blockHistogramSize]);
-
+			const float* vec=cache.getBlock(pt, &blockHist[0]);
+			memcpy(&winHist[blockHistogramSize*j], vec, sizeof(float)*blockHistogramSize);
 		}
-		float result = hddsvm->predict(winHist);
-		if ((int)result==1)
+		Mat resultmat;
+		float response = hddsvm->predict(winHist,resultmat, ml::StatModel::RAW_OUTPUT);
+		//cout << resultmat << endl;
+
+		response = resultmat.at<float>(0, 0);
+
+		//float test = hddsvm->predict(winHist);
+		if (response <=-hitThreshold)
 		{
 			foundlocations.push_back(pt0);
-			weights.push_back(result);
+			weights.push_back(-response);
 		}
+
+		/*double response = rho;
+		for (int k = 0; k < winHist.size(); ++k)
+		{
+			response += winHist[k] * svmvec[k];
+		}*/
+		/*if (response >= hitThreshold)
+		{
+			foundlocations.push_back(pt0);
+			weights.push_back(response);
+		}*/
+		
 	}
 }
 
@@ -547,7 +588,7 @@ public:
 		Mat smallerImgBuf(maxSz, img.type());
 		vector<Point> locations;
 		vector<double> hitsWeights;
-
+		//cout << "hdd" << endl;
 		for (i = i1; i < i2; i++)
 		{
 			double scale = levelScale[i];
@@ -556,7 +597,7 @@ public:
 			if (sz == img.size())
 				smallerImg = Mat(sz, img.type(), img.data, img.step);
 			else
-				resize(img, smallerImg, sz);
+				resize(img, smallerImg, sz,INTER_NEAREST);
 			hdd->detect(smallerImg, locations, hitsWeights, hitThreshold, winStride);
 			Size scaledWinSize = Size(cvRound(hdd->winSize.width*scale), cvRound(hdd->winSize.height*scale));
 
@@ -615,20 +656,13 @@ void HDD::detectMultiScale(const cv::Mat& img, vector<cv::Rect>& foundlocations,
 	levels = std::max(levels, 1);
 	levelScale.resize(levels);
 
-	std::vector<Rect> allCandidates;
-	std::vector<double> tempScales;
-	std::vector<double> tempWeights;
 	std::vector<double> foundScales;
+	foundlocations.clear();
+	weights.clear();
 	Mutex mtx;
 
 	parallel_for_(Range(0, (int)levelScale.size()),
-		HDDInvoker(this, img, hitThreshold, winStride, &levelScale[0], &allCandidates, &mtx, &tempWeights, &tempScales));
-
-	std::copy(tempScales.begin(), tempScales.end(), back_inserter(foundScales));
-	foundlocations.clear();
-	std::copy(allCandidates.begin(), allCandidates.end(), back_inserter(foundlocations));
-	weights.clear();
-	std::copy(tempWeights.begin(), tempWeights.end(), back_inserter(weights));
+		HDDInvoker(this, img, hitThreshold, winStride, &levelScale[0], &foundlocations, &mtx, &weights, &foundScales));
 
 	if (usemeanshift)
 	{
@@ -676,11 +710,14 @@ void HDD::cal_parms()
 		((winSize.width - blockSize.width) / blockStride.width + 1)*
 		((winSize.height - blockSize.height) / blockStride.height + 1);
 
+	maskx = (Mat_<float>(3, 3) << 0, 0, 0, -0.5, 0, 0.5, 0, 0, 0);
+	masky = (Mat_<float>(3, 3) << 0, -0.5, 0, 0, 0, 0, 0, 0.5, 0);
+
 }
 
 void HDD::groupRectangles(vector<cv::Rect>& rectList, vector<double>& weights, int groupThreshold, double eps) const
 {
-	if (groupThreshold <= 0 || rectList.empty())
+	if (groupThreshold <= 0 || rectList.empty()||rectList.size()==1)
 	{
 		return;
 	}
@@ -763,102 +800,41 @@ void HDD::computeGradient(const Mat& img, Mat& grad, Mat& angleOfs, Size padding
 	grad.create(gradsize, CV_32FC2);
 	angleOfs.create(gradsize, CV_8UC2);
 
-	Size wholeSize;
-	Point roiofs;
-	img.locateROI(wholeSize, roiofs);
-
-	int i, x, y;
-	int cn = img.channels();
-	Mat_<float> _lut;
-	if (img.type() == CV_8U)
+	Mat imgPadded;
+	if (gradsize != img.size())
 	{
-		_lut.create(1, 256);
-		for (i = 0; i < 256; ++i)
-		{
-			_lut(0, i) = (float)i;
-		}
+		copyMakeBorder(img,imgPadded,paddingTL.height,paddingBR.height,paddingTL.width,paddingBR.width,BORDER_REFLECT101);
 	}
 	else
-	{
-		_lut.create(1, 8000);
-		for (i = 0; i < 8000; ++i)
-		{
-			_lut(0, i) = (float)i;
-		}
-	}
+		imgPadded = img;
+	Mat Dx, Dy;
+	filter2D(imgPadded, Dx, CV_32FC1, maskx);
+	filter2D(imgPadded, Dy, CV_32FC1, masky);
 
-	AutoBuffer<int> mapbuf(gradsize.width + gradsize.height + 4);
-	int* xmap = (int*)mapbuf + 1;
-	int* ymap = xmap + gradsize.width + 2;
-
-	const int borderType = (int)BORDER_REFLECT101;
-	const float* lut = &_lut(0, 0);
-	for (x = -1; x < gradsize.width + 1; ++x)
-	{
-		xmap[x] = borderInterpolate(x - paddingTL.width + roiofs.x,
-			wholeSize.width, borderType) - roiofs.x;
-	}
-	for (y = -1; y < gradsize.width + 1; ++y)
-	{
-		ymap[y] = borderInterpolate(y - paddingTL.height + roiofs.y,
-			wholeSize.height, borderType) - roiofs.y;
-	}
-
-	//// x- & y- derivatives for the whole row
-	int width = gradsize.width;
-	AutoBuffer<float> _dbuf(width * 4);
-	float* dbuf = _dbuf;
-	Mat Dx(1, width, CV_32F, dbuf);
-	Mat Dy(1, width, CV_32F, dbuf + width);
-	Mat Mag(1, width, CV_32F, dbuf + width * 2);
-	Mat Angle(1, width, CV_32F, dbuf + width * 3);
+	
 
 	int _nbins = nbins;
 	float angleScale = (float)(_nbins / (2 * CV_PI));
-
-	for (y = 0; y < gradsize.height; ++y)
+	Mat angle, mag;
+	cartToPolar(Dx, Dy, mag, angle);
+	/*cout << angle << endl;
+	imshow("fx", angle);
+	waitKey();*/
+	for (int y = 0; y < gradsize.height;++y)
 	{
 		float* gradPtr = (float*)grad.ptr(y);
 		uchar* qanglePtr = (uchar*)angleOfs.ptr(y);
+		float* magPtr = mag.ptr<float>(y);
+		float* anglePtr = angle.ptr<float>(y);
 
-		if (img.type() == CV_8U)
+		for (int x = 0; x < gradsize.width;++x)
 		{
-			const uchar* imgPtr = img.data + img.step*ymap[y];
-			const uchar* prevPtr = img.data + img.step*ymap[y - 1];
-			const uchar* nextPtr = img.data + img.step*ymap[y + 1];
-
-			for (x = 0; x < width; ++x)
-			{
-				int x1 = xmap[x];
-				dbuf[x] = (float)(lut[imgPtr[xmap[x + 1]]] - lut[imgPtr[xmap[x - 1]]]) / 2;
-				dbuf[width + x] = (float)(lut[nextPtr[x1]] - lut[prevPtr[x1]]) / 2;
-			}
-		}
-		else
-		{
-			const ushort* imgPtr = (ushort*)img.data + img.step / img.elemSize()*ymap[y];
-			const ushort* prevPtr = (ushort*)img.data + img.step / img.elemSize()*ymap[y - 1];
-			const ushort* nextPtr = (ushort*)img.data + img.step / img.elemSize()*ymap[y + 1];
-
-			for (x = 0; x < width; ++x)
-			{
-				int x1 = xmap[x];
-				dbuf[x] = (float)(lut[imgPtr[xmap[x + 1]]] - lut[imgPtr[xmap[x - 1]]]) / 2;
-				dbuf[width + x] = (float)(lut[nextPtr[x1]] - lut[prevPtr[x1]]) / 2;
-			}
-		}
-
-		//0~2pi
-		cartToPolar(Dx, Dy, Mag, Angle, false);
-
-		for (x = 0; x < width; ++x)
-		{
-			float mag = dbuf[x + width * 2];
-			float angle = dbuf[x + width * 3] * angleScale - 0.5f;
+			float mag = magPtr[x];
+			float angle = anglePtr[x] * angleScale - 0.5f;
 			int hidx = cvFloor(angle);
 			angle -= hidx;
-			gradPtr[x * 2] = mag*(1.f - angle);
-			gradPtr[x * 2 + 1] = mag*angle;
+			gradPtr[2*x] = mag*(1.f - angle);
+			gradPtr[2*x+1] = mag*angle;
 
 			if (hidx < 0)
 				hidx += _nbins;
@@ -871,6 +847,118 @@ void HDD::computeGradient(const Mat& img, Mat& grad, Mat& angleOfs, Size padding
 			hidx &= hidx < _nbins ? -1 : 0;
 			qanglePtr[x * 2 + 1] = (uchar)hidx;
 		}
+
 	}
+
+	//Size wholeSize;
+	//Point roiofs;
+	//img.locateROI(wholeSize, roiofs);
+
+	//int i, x, y;
+	//int cn = img.channels();
+	//Mat_<float> _lut;
+	//if (img.type() == CV_8U)
+	//{
+	//	_lut.create(1, 256);
+	//	for (i = 0; i < 256; ++i)
+	//	{
+	//		_lut(0, i) = (float)i;
+	//	}
+	//}
+	//else
+	//{
+	//	_lut.create(1, 10001);
+	//	for (i = 0; i < 10001; ++i)
+	//	{
+	//		_lut(0, i) = (float)i;
+	//	}
+	//}
+
+	//AutoBuffer<int> mapbuf(gradsize.width + gradsize.height + 4);
+	//int* xmap = (int*)mapbuf + 1;
+	//int* ymap = xmap + gradsize.width + 2;
+
+	//const int borderType = (int)BORDER_REFLECT101;
+	//const float* lut = &_lut(0, 0);
+	//for (x = -1; x < gradsize.width + 1; ++x)
+	//{
+	//	xmap[x] = borderInterpolate(x - paddingTL.width + roiofs.x,
+	//		wholeSize.width, borderType) - roiofs.x;
+	//}
+	//for (y = -1; y < gradsize.width + 1; ++y)
+	//{
+	//	ymap[y] = borderInterpolate(y - paddingTL.height + roiofs.y,
+	//		wholeSize.height, borderType) - roiofs.y;
+	//}
+
+	////// x- & y- derivatives for the whole row
+	//int width = gradsize.width;
+	//vector<float> _dbuf(width * 4,0);
+	////AutoBuffer<float> _dbuf(width * 4);
+	//float* dbuf =&_dbuf[0];
+	//Mat Dx(1, width, CV_32F, dbuf);
+	//Mat Dy(1, width, CV_32F, dbuf + width);
+	//Mat Mag(1, width, CV_32F, dbuf + width * 2);
+	//Mat Angle(1, width, CV_32F, dbuf + width * 3);
+
+	//
+
+	//for (y = 0; y < gradsize.height; ++y)
+	//{
+	//	float* gradPtr = (float*)grad.ptr(y);
+	//	uchar* qanglePtr = (uchar*)angleOfs.ptr(y);
+
+	//	if (img.type() == CV_8U)
+	//	{
+	//		const uchar* imgPtr = img.data + img.step*ymap[y];
+	//		const uchar* prevPtr = img.data + img.step*ymap[y - 1];
+	//		const uchar* nextPtr = img.data + img.step*ymap[y + 1];
+
+	//		for (x = 0; x < width; ++x)
+	//		{
+	//			int x1 = xmap[x];
+	//			dbuf[x] = (float)(lut[imgPtr[xmap[x + 1]]] - lut[imgPtr[xmap[x - 1]]]) / 2;
+	//			dbuf[width + x] = (float)(lut[nextPtr[x1]] - lut[prevPtr[x1]]) / 2;
+	//		}
+	//	}
+	//	else
+	//	{
+	//		const ushort* imgPtr = (ushort*)img.data + img.step / img.elemSize()*ymap[y];
+	//		const ushort* prevPtr = (ushort*)img.data + img.step / img.elemSize()*ymap[y - 1];
+	//		const ushort* nextPtr = (ushort*)img.data + img.step / img.elemSize()*ymap[y + 1];
+	//		cout << img.step << endl;
+	//		for (x = 0; x < width; ++x)
+	//		{
+	//			int x1 = xmap[x];
+	//			dbuf[x] = (float)(lut[imgPtr[xmap[x + 1]]] - lut[imgPtr[xmap[x - 1]]]) / 2;
+	//			dbuf[width + x] = (float)(lut[nextPtr[x1]] - lut[prevPtr[x1]]) / 2;
+	//		}
+	//	}
+
+	//	//0~2pi
+	//	cartToPolar(Dx, Dy, Mag, Angle, false);
+
+	//	for (x = 0; x < width; ++x)
+	//	{
+	//		float mag = dbuf[x + width * 2];
+	//		float angle = dbuf[x + width * 3] * angleScale - 0.5f;
+	//		int hidx = cvFloor(angle);
+	//		angle -= hidx;
+	//		gradPtr[x * 2] = mag*(1.f - angle);
+	//		gradPtr[x * 2 + 1] = mag*angle;
+
+	//		if (hidx < 0)
+	//			hidx += _nbins;
+	//		else if (hidx >= _nbins)
+	//			hidx -= _nbins;
+
+	//		CV_Assert((unsigned)hidx < (unsigned)_nbins);
+	//		qanglePtr[x * 2] = (uchar)hidx;
+	//		++hidx;
+	//		hidx &= hidx < _nbins ? -1 : 0;
+	//		qanglePtr[x * 2 + 1] = (uchar)hidx;
+	//	}
+	//}
+	//_dbuf.clear();
 }
 

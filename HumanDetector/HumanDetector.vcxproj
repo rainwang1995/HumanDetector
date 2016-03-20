@@ -118,7 +118,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <Optimization>MaxSpeed</Optimization>
+      <Optimization>Disabled</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
@@ -135,21 +135,33 @@
   <ItemGroup>
     <ClInclude Include="Algorithm.hpp" />
     <ClInclude Include="CKinect.h" />
+    <ClInclude Include="Graphpropagation.h" />
     <ClInclude Include="HDD.h" />
     <ClInclude Include="HONVNW.h" />
+    <ClInclude Include="LDPK.h" />
     <ClInclude Include="LTDP.h" />
     <ClInclude Include="opencvHeader.h" />
+    <ClInclude Include="our_fmm.hpp" />
     <ClInclude Include="preprocess.h" />
+    <ClInclude Include="PSLTP.h" />
     <ClInclude Include="SLTP.h" />
+    <ClInclude Include="SLTP2.h" />
+    <ClInclude Include="SLTPB.h" />
     <ClInclude Include="Utils.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="CKinect.cpp" />
+    <ClCompile Include="Graphpropagation.cpp" />
     <ClCompile Include="HDD.cpp" />
     <ClCompile Include="HONVNW.cpp" />
+    <ClCompile Include="LDPK.cpp" />
     <ClCompile Include="LTDP.cpp" />
+    <ClCompile Include="our_fmm.cpp" />
     <ClCompile Include="preprocess.cpp" />
+    <ClCompile Include="PSLTP.cpp" />
     <ClCompile Include="SLTP.cpp" />
+    <ClCompile Include="SLTP2.cpp" />
+    <ClCompile Include="SLTPB.cpp" />
     <ClCompile Include="test.cpp" />
     <ClCompile Include="Utils.cpp" />
   </ItemGroup>

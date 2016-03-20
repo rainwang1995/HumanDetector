@@ -1,32 +1,61 @@
 #include "HONVNW.h"
 #include <iterator>
 #include <omp.h>
-#include <cmath>
 using namespace cv;
 
 void HONVNW::compute(const cv::Mat & img, vector<float>& feature)const
 {
 	Mat dx, dy;
 	compute_dxdy(img, dx, dy);
-	Mat theta, phi;
-
+	arma::fmat theta, phi;
 	compute_theta_phi(dx, dy, theta, phi);
-	Mat bincenter;
-	Mat binindex;
+	arma::fcube bincenter;
+	arma::icube binindex;
 	//cout << theta << endl;
 	compute_HistBin(theta, phi, bincenter, binindex);
-	compute_hist(binindex, feature);
+
+	arma::fvec hist;
+	compute_hist(binindex, hist);
+
+	feature = arma::conv_to<vector<float> >::from(hist);
 }
 
 void HONVNW::setSvmDetector(const cv::Ptr<cv::ml::SVM>& _svm)
 {
 	//svm = cv::ml::SVM::create();
 	svm = _svm;
+	svmvec.clear();
+	Mat vec = svm->getSupportVectors();
+	//int dim = sltpsvm->getVarCount();
+	Mat alpha, sdivx;
+	rho = svm->getDecisionFunction(0, alpha, sdivx);
+	Mat resultMat = -1 * vec;
+	for (int i = 0; i < vec.cols; ++i)
+	{
+		svmvec.push_back(resultMat.at<float>(0, i));
+	}
+	svmvec.push_back(rho);
 }
+
+//void HONVNW::setSvmDetector(const string& xmlfile)
+//{
+//	svm = ml::StatModel::load<ml::SVM>(xmlfile);
+//}
 
 void HONVNW::loadSvmDetector(const string & xmlfile)
 {
 	svm = ml::StatModel::load<ml::SVM>(xmlfile);
+	svmvec.clear();
+	Mat vec = svm->getSupportVectors();
+	//int dim = sltpsvm->getVarCount();
+	Mat alpha, sdivx;
+	rho = svm->getDecisionFunction(0, alpha, sdivx);
+	Mat resultMat = -1 * vec;
+	for (int i = 0; i < vec.cols; ++i)
+	{
+		svmvec.push_back(resultMat.at<float>(0, i));
+	}
+	svmvec.push_back(rho);
 }
 
 void HONVNW::detect(const cv::Mat& img, vector<Point>& foundLocations, vector<double>& weights, double hisThreshold /*= 0*/, cv::Size winStride, const vector<Point>& locations)const
@@ -63,10 +92,6 @@ void HONVNW::detect(const cv::Mat& img, vector<Point>& foundLocations, vector<do
 
 	int numwinR = (paddedImgSize.width - winSize.width) / winStride.width + 1;
 	int numwinC = (paddedImgSize.height - winSize.height) / winStride.height + 1;
-
-	//计算整幅图
-	Mat binindeximg;
-	compute_win(paddedimg, binindeximg);
 
 	if (locations.size())
 	{
@@ -105,27 +130,40 @@ void HONVNW::detect(const cv::Mat& img, vector<Point>& foundLocations, vector<do
 			{
 				Point pt0;
 
-				Rect rt = Rect(i*winStride.width, j*winStride.height, winSize.width, winSize.height);
-
-				//Mat winimg = paddedimg(rt);
-
-				Mat binindexroi = binindeximg(rt);
+				Mat winimg = paddedimg(Rect(i*winStride.width,j*winStride.height, winSize.width, winSize.height));
 
 				pt0.x = i*winStride.width - padding.width;
 				pt0.y = j*winStride.height - padding.height;
 
 				vector<float> feature;
-				//compute(winimg, feature);
-				compute_hist(binindexroi, feature);
+				compute(winimg, feature);
 
-				Mat result;
-				float response = svm->predict(feature, result, ml::StatModel::RAW_OUTPUT);
-				response = result.at<float>(0, 0);
-				if (response <= -hisThreshold)
+				double response = rho;
+				for (int k = 0; k < feature.size(); ++k)
+				{
+					response += feature[k] * svmvec[k];
+				}
+
+				if (response >= hisThreshold)
 				{
 					foundLocations.push_back(pt0);
-					weights.push_back(-response);
+					weights.push_back(response);
 				}
+
+				//Mat result;
+				////float response = svm->predict(feature, result, ml::StatModel::RAW_OUTPUT);
+				//float response = svm->predict(feature);
+				////cout << response << endl;
+				//if ((int)response==1)
+				//{
+				//	foundLocations.push_back(pt0);
+				//	weights.push_back(response);
+				//}
+				/*if (response >= hisThreshold)
+				{
+					foundLocations.push_back(pt0);
+					weights.push_back(response);
+				}*/
 			}
 		}
 	}
@@ -175,7 +213,9 @@ public:
 		Mat smallerImgBuf(maxSz, img.type());
 		vector<Point> locations;
 		vector<double> hitsWeights;
-		//cout << "honv" << endl;
+
+		cout << "hov?" << endl;
+
 		for (i = i1; i < i2; i++)
 		{
 			double scale = levelScale[i];
@@ -244,23 +284,21 @@ void HONVNW::detectMultiScale(const cv::Mat& img, vector<cv::Rect>& foundlocatio
 	levels = std::max(levels, 1);
 	levelScale.resize(levels);
 
-	foundlocations.clear();
-	weights.clear();
-	/*vector<Rect> allCandidates;
+	vector<Rect> allCandidates;
 	vector<double> tempScales;
-	vector<double> tempWeights;*/
+	vector<double> tempWeights;
 	vector<double> foundScales;
 
 	Mutex mtx;
 	parallel_for_(Range(0, levelScale.size()),
-		Parallel_Detection_HONV(this, img, hitThreshold, winStride, &levelScale[0], &foundlocations, &mtx, &weights, &foundScales));
+		Parallel_Detection_HONV(this, img, hitThreshold, winStride, &levelScale[0], &allCandidates, &mtx, &tempWeights, &tempScales));
 
-	//foundScales.clear();
-	//std::copy(tempScales.begin(), tempScales.end(), back_inserter(foundScales));
-	//foundlocations.clear();
-	//std::copy(allCandidates.begin(), allCandidates.end(), back_inserter(foundlocations));
-	//weights.clear();
-	//std::copy(tempWeights.begin(), tempWeights.end(), back_inserter(weights));
+	foundScales.clear();
+	std::copy(tempScales.begin(), tempScales.end(), back_inserter(foundScales));
+	foundlocations.clear();
+	std::copy(allCandidates.begin(), allCandidates.end(), back_inserter(foundlocations));
+	weights.clear();
+	std::copy(tempWeights.begin(), tempWeights.end(), back_inserter(weights));
 
 	if (usemeanshift)
 	{
@@ -318,190 +356,168 @@ void HONVNW::compute_dxdy(const cv::Mat & src, cv::Mat & dximg, cv::Mat & dyimg)
 	//cout << dximg;
 }
 
-void HONVNW::compute_theta_phi(cv::Mat & dximg, cv::Mat & dyimg, Mat& theta, Mat& phi)const
+void HONVNW::compute_theta_phi(cv::Mat & dximg, cv::Mat & dyimg, arma::Mat<float>& theta, arma::Mat<float>& phi)const
 {
 
-	Mat powmatx = dximg.mul(dximg);
-	Mat powmaty = dyimg.mul(dyimg);
 
-	theta.create(dximg.size(), CV_32FC1);
-	phi.create(dyimg.size(), CV_32FC1);
+	arma::Mat<float> dxmat(dximg.ptr<float>(0), dximg.rows, dximg.cols, false);
+	arma::Mat<float> dymat(dyimg.ptr<float>(0), dyimg.rows, dyimg.cols, false);
 
-	for (int j = 0; j < phi.rows;++j)
+	arma::Mat<float> powmatx = arma::pow(dxmat, 2.0);
+	arma::Mat<float> powmaty = arma::pow(dymat, 2.0);
+
+	phi = arma::atan(dymat / dxmat) + PI / 2;
+	//cout << phi << endl;
+//#pragma omp parallel for
+	for (int j = 0; j < phi.n_rows;++j)
 	{
-		const float* dximgPtr = dximg.ptr<float>(j);
-		const float* dyimgPtr = dyimg.ptr<float>(j);
-
-		float* phiPtr = phi.ptr<float>(j);
-		float* thetaPtr = theta.ptr<float>(j);
-		for (int i = 0; i < phi.cols;++i)
+		for (int i = 0; i < phi.n_cols;++i)
 		{
-			float dx = dximgPtr[i];
-			float dy = dyimgPtr[i];
-
-			phiPtr[i] = 0;
-			float phiangle = 0;
-			if (abs(dx)>1e-6)
+			if (arma::arma_isnan(phi(j,i)))
 			{
-				phiPtr[i] = atan(dy / dx) + PI / 2;
+				phi(j, i) = 0;
 			}
-
-			float sqrtxy = sqrt(dx*dx + dy*dy);
-			thetaPtr[i] = atan(sqrtxy) + PI / 2;
 		}
 	}
+	//cout << phi;
+	theta = arma::atan(arma::sqrt(powmatx + powmaty)) + PI / 2;
+	//cout << theta;
 }
 
-void HONVNW::compute_HistBin(Mat& theta, Mat& phi,Mat& bincenter, Mat& binindex)const
+void HONVNW::compute_HistBin(arma::fmat& theta, arma::fmat& phi, arma::fcube& bincenter, arma::icube& binindex)const
 {
 	float thetabinwidth = PI / bin_numtheta;
 	float phibinwidth = PI / bin_numphi;
 
 	//computeLowerHistBin
-	Mat bincentertheta, bincenterphi;
-	Mat binindextheta, binindexphi;
+	arma::fmat bincentertheta, bincenterphi;
+	arma::imat binindextheta, binindexphi;
 
 	compute_HistBin(theta, thetabinwidth, bincentertheta, binindextheta);
 	compute_HistBin(phi, phibinwidth, bincenterphi, binindexphi);
 
 //#pragma omp parallel for
-	for (int i = 0; i < binindextheta.rows;++i)
+	for (int i = 0; i < binindextheta.n_rows;++i)
 	{
-		uchar* ptr = binindextheta.ptr<uchar>(i);
-		for (int j = 0; j < binindextheta.cols;++j)
+		for (int j = 0; j < binindextheta.n_cols;++j)
 		{
-			if (ptr[j]>=bin_numtheta)
+			if (binindextheta(i,j)>=bin_numtheta)
 			{
-				ptr[j]= 0;
+				binindextheta(i, j) = bin_numtheta - 1;
 			}
 		}
 	}
 
 //#pragma omp parallel for
-	for (int i = 0; i < binindexphi.rows; ++i)
+	for (int i = 0; i < binindexphi.n_rows; ++i)
 	{
-		uchar* ptr = binindextheta.ptr<uchar>(i);
-		for (int j = 0; j < binindexphi.cols; ++j)
+		for (int j = 0; j < binindexphi.n_cols; ++j)
 		{
-			if (ptr[j] >= bin_numphi)
+			if (binindexphi(i, j) >= bin_numphi)
 			{
-				ptr[j] = 0;
+				binindexphi(i, j) = bin_numphi - 1;
 			}
 		}
 	}
 
-	vector<Mat> channels(2);
-	channels[0] = binindextheta;
-	channels[1] = binindexphi;
+	binindex.resize(theta.n_rows, theta.n_cols, 2);
+	//binindex.zeros();
+	//cout << binindexphi;
 
-	merge(channels, binindex);
+	binindex.slice(0) = binindextheta;
+	binindex.slice(1) = binindexphi;
 
-	vector<Mat> channelscenter(2);
-	channelscenter[0] = bincentertheta;
-	channelscenter[1] = bincenterphi;
-	merge(channelscenter, bincenter);
+	bincenter.resize(theta.n_rows, theta.n_cols, 2);
+	bincenter.slice(0) = bincentertheta;
+	bincenter.slice(1) = bincenterphi;
 
 }
 
-void HONVNW::compute_HistBin(Mat& x, float binwidth, Mat& bincenter, Mat& binindex)const
+void HONVNW::compute_HistBin(arma::fmat& x, float binwidth, arma::fmat& bincenter, arma::imat& binindex)const
 {
 	//float invWidth = 1.0 / binwidth;
-	Mat bin(x.size(), CV_8UC1);
-	for (int i = 0; i < x.rows;++i)
+	arma::fmat bin = arma::floor(x / binwidth);
+
+	binindex = arma::conv_to<arma::imat >::from(bin);
+	bincenter = binwidth*(bin + 0.5);
+}
+
+void HONVNW::compute_hist_cell(arma::icube& binindex, arma::ivec& cellhist)const
+{
+	arma::imat cellmat(bin_numtheta, bin_numphi, arma::fill::zeros);
+
+	for (int y = 0; y < binindex.n_rows;++y)
 	{
-		float* xPtr = x.ptr<float>(i);
-		uchar* bPtr = bin.ptr<uchar>(i);
-		for (int j = 0; j < x.cols;++j)
+		for (int x = 0; x < binindex.n_cols;++x)
 		{
-			bPtr[j] = floor(xPtr[j] / binwidth);
+			/*cout << binindex(y, x, 0) << " " << binindex(y, x, 1) << endl;
+			cout << bin_numphi << " " << bin_numtheta << endl;
+			cout << cellmat.n_rows << " " << cellmat.n_cols << endl;*/
+			cellmat(binindex(y, x, 0), binindex(y, x, 1)) = cellmat(binindex(y, x, 0), binindex(y, x, 1)) + 1;
 		}
 	}
-	binindex = bin;
-	Mat binf = bin + 0.5;
-	bincenter = binwidth*binf;
+
+	cellhist=arma::vectorise(cellmat);
+	//cellhist = arma::conv_to<arma::ivec>::from(cellmat);
 }
 
-void HONVNW::compute_hist_cell(Mat& binindex, float* cellhist)const
+void HONVNW::compute_hist_block(arma::icube & binindex, arma::fvec& blockhist)const
 {
-	for (int y = 0; y < binindex.rows;++y)
-	{
-		uchar* ptr = binindex.ptr<uchar>(y);
-		for (int x = 0; x < binindex.cols;++x)
-		{			
-			int index = ptr[2 * x] * bin_numphi + ptr[2 * x + 1];
-			++cellhist[index];		
-		}
-	}
-}
+	blockhist.resize(numCellsPerBlock*bin_numtheta*bin_numphi);
 
-void HONVNW::compute_hist_block(Mat & binindex, float* blockhist)const
-{
 	for (int y = 0,p=0; y < cellnumCblock;++y)
 	{
-		uchar* indexptr = binindex.ptr<uchar>(y);
 		for (int x = 0; x < cellnumRblock;++x,++p)
-		{	
-			Mat subcell = binindex(Rect(x*cellSize.width, y*cellSize.height, cellSize.width, cellSize.height));
-			compute_hist_cell(subcell, &blockhist[bin_numphi*bin_numtheta*p]);
+		{
+			arma::icube cell = binindex.subcube(y*cellSize.height, x*cellSize.width, 0, 
+				arma::SizeCube(cellSize.height, cellSize.width, 2));
+
+			arma::ivec cellhist;
+			compute_hist_cell(cell, cellhist);
+			int startindex = p*cellhist.n_elem;
+			for (int i = 0; i < cellhist.n_elem;++i)
+			{
+				blockhist(startindex + i) = cellhist(i);
+			}
 		}
 	}
 
-	
 	//归一化
-	normliseblock(blockhist);
-}
-
-void HONVNW::normliseblock(float* blockhist) const
-{
-	float* hist = &blockhist[0];
-	size_t i, sz = bin_numtheta*bin_numtheta*numCellsPerBlock;
-
-	float sum = 0;
-	for (i = 0; i < sz; i++)
-		sum += hist[i] * hist[i];
-
-	float scale = 1.f / (std::sqrt(sum) + sz*0.1f), thresh = 0.2;
-
-	for (i = 0, sum = 0; i < sz; i++)
+	arma::normalise(blockhist, 2);
+	for (int i = 0; i < blockhist.n_elem;++i)
 	{
-		hist[i] = std::min(hist[i] * scale, thresh);
-		sum += hist[i] * hist[i];
+		if (blockhist(i)>NORMTHR)
+		{
+			blockhist(i) = NORMTHR;
+		}
 	}
 
-	scale = 1.f / (std::sqrt(sum) + 1e-3f);
-
-	for (i = 0; i < sz; i++)
-		hist[i] *= scale;
+	arma::normalise(blockhist, 2);
 }
 
-void HONVNW::compute_hist(Mat& binindex, vector<float>& hist)const
+void HONVNW::compute_hist(arma::icube & binindex, arma::fvec & hist)const
 {
-	hist.clear();
 	hist.resize(featureLen);
-	int featurelenPerblock = numCellsPerBlock*bin_numphi*bin_numtheta;
+	
 	//scan all blocks
 	for (int y = 0,p=0; y < blocknumC;++y)
 	{
 		for (int x = 0; x < blocknumR;++x,++p)
 		{
-			Mat blockmat = binindex(Rect(x*blockStride.width, y*blockStride.height, blockSize.width, blockSize.height));
+			arma::icube blockcube = binindex.subcube(y*blockStride.height, 
+				x*blockStride.width, 0, arma::SizeCube(blockStride.height, blockStride.width, 2));
 
-			compute_hist_block(blockmat, &hist[p*featurelenPerblock]);
+			arma::fvec blockhist;
+			compute_hist_block(blockcube, blockhist);
+
+			int startindex = p*blockhist.n_elem;
+			for (int i = 0; i < blockhist.n_elem;++i)
+			{
+				hist(startindex + i) = blockhist(i);
+			}
 		}
 	}
 
-}
-
-void HONVNW::compute_win(Mat& src, Mat& binindex) const
-{
-	Mat dx, dy;
-	compute_dxdy(src, dx, dy);
-	Mat theta, phi;
-
-	compute_theta_phi(dx, dy, theta, phi);
-	Mat bincenter;
-	//cout << theta << endl;
-	compute_HistBin(theta, phi, bincenter, binindex);
 }
 
 void HONVNW::groupRectangles(vector<cv::Rect>& rectList, vector<double>& weights, int groupThreshold, double eps) const

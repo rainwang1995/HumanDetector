@@ -47,12 +47,12 @@ public:
 		vector<double>& weights, double hitThreshold = 0, cv::Size winStride = cv::Size(), const vector<cv::Point>& locations = vector<cv::Point>())const;
 
 	virtual void detectMultiScale(const cv::Mat& img, vector<cv::Rect>& foundlocations, vector<double>& weights, double hitThreshold = 0,
-		cv::Size winStride = cv::Size(), double nlevels = 64, double scale0 = 1.05, double finalThreshold = 2.0, bool usemeanshift = false)const;
+		cv::Size winStride = cv::Size(), double nlevels = 64, double scale0 = 1.1, double finalThreshold = 2.0, bool usemeanshift = false)const;
 
 	virtual void detect(const cv::Mat& img, vector<cv::Point>& foundLocations, double hitThreshold = 0, cv::Size winStride = cv::Size(),
 		const vector<cv::Point>& locations = vector<cv::Point>()) const;
 	virtual void detectMultiScale(const cv::Mat& img, vector<cv::Rect>& foundlocations, double hitThreshold = 0, cv::Size winStride = cv::Size(),
-		double nlevels = 64, double scale0 = 1.05, double finalThreshold = 2.0, bool usemeanshift = false)const;
+		double nlevels = 64, double scale0 = 1.1, double finalThreshold = 2.0, bool usemeanshift = false)const;
 
 
 	double getWinSigma() const;
@@ -60,7 +60,7 @@ public:
 	void computeGradient(const cv::Mat& img, cv::Mat& grad, cv::Mat& angleOfs,
 		cv::Size paddingTL = cv::Size(), cv::Size paddingBR = cv::Size()) const;
 
-	virtual ~HDD() {}
+	virtual ~HDD() { hddsvm.release(); svmvec.clear(); maskx.release(); masky.release(); }
 private:
 	void cal_parms();
 	void groupRectangles(vector<cv::Rect>& rectList, vector<double>& weights, int groupThreshold, double eps) const;
@@ -79,7 +79,10 @@ private:
 	//CV_PROP bool gammaCorrection;
 	//vector<float> svmDetector;
 	cv::Ptr<cv::ml::SVM> hddsvm;
-
+	vector<float> svmvec;
+	double rho;
 	int featurenlen;
+	cv::Mat maskx;
+	cv::Mat masky;
 };
 #endif

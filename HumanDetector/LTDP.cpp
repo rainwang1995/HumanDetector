@@ -1,5 +1,6 @@
 #include "LTDP.h"
 #include <iterator>
+#include <fstream>
 using namespace cv;
 
 void LTDP::setDefaultParams()
@@ -45,77 +46,40 @@ void LTDP::cal_params()
 		47, 48, 58, 49, 58, 58, 58, 50, 51, 52, 58, 53, 54, 55, 56, 57 };
 
 	lookUpTable.create(1, 256, CV_8U);
+	lookUpTable2 = Mat::ones(1, 256, CV_8UC1);
+	lookUpTable2.at<uchar>(0, 0) = 0;
+
 	memcpy((uchar*)lookUpTable.data, table, sizeof(uchar) * 256);
 }
 
 void LTDP::compute_Ltpvalue(const cv::Mat& src, cv::Mat& ltpimgpos,cv::Mat& ltpimgneg)const
 {
-	Mat mapcol(src.cols*src.rows, 8, CV_32SC1);
-	
 	ltpimgpos = Mat::zeros(src.size(), CV_8UC1);
 	ltpimgneg = Mat::zeros(src.size(), CV_8UC1);
-	imshow("test", ltpimgpos);
-	waitKey(5);
-	//cout << masks[1] << endl;
+
 	Mat dismap;
 	for (int i = 0; i < 8;++i)
 	{
 		filter2D(src, dismap,CV_32FC1, masks[i]);
 
 		Mat mask1 = (dismap >= pthreshold);
-		mask1.setTo(1, mask1 != 0);
+		LUT(mask1, lookUpTable2, mask1);
+		//mask1.setTo(1, mask1 != 0);
 		ltpimgpos += ((1 << (7 - i))*mask1);
 
-		imshow("test", ltpimgpos);
-		waitKey();
+		//imshow("test", ltpimgpos);
+		//waitKey();
 		Mat mask2 = (dismap<= -pthreshold);
-		mask2.setTo(1, mask2 != 0);
+		LUT(mask2, lookUpTable2, mask2);
+		//mask2.setTo(1, mask2 != 0);
+		ltpimgneg += ((1 << (7 - i))*mask2);
 	}
-
-//	Mat code(8, 1, CV_32FC1);
-//	for (int i = 0; i < 8;++i)
-//	{
-//		code.at<float>(i) = 1 << (7-i);
-//	}
-//	cout << code << endl;
-//	Mat mask1 = (mapcol >= pthreshold);
-//	Mat mask2 = (mapcol <= -pthreshold);
-//
-////	Mat test = mapcol.clone();
-////	test = abs(test);
-////
-////	test.convertTo(test, CV_8UC1);
-//////	Mat mask1 = (test == 255);
-////	cvtColor(test, test, CV_GRAY2BGR);
-////
-////	test.setTo(Scalar(255, 0, 0), mask1);
-////
-////	imshow("test", test);
-////	waitKey();
-//
-//	mask1.convertTo(mask1, CV_32FC1);
-//	mask2.convertTo(mask2, CV_32FC1);
-//	//mask1 = Mat::zeros(8, 8, CV_8UC1);
-//	Mat tltpimgpos = mask1*code;
-//	Mat tltpimgneg = mask2*code;
-//
-//	ltpimgpos = tltpimgpos.reshape(0, src.rows);
-//	ltpimgneg = tltpimgneg.reshape(0, src.rows);
-//
-//	ltpimgpos.convertTo(ltpimgpos, CV_8UC1);
-//	ltpimgneg.convertTo(ltpimgneg, CV_8UC1);
-//
-//	imwrite("lp.png", ltpimgpos);
-//
-//	imshow("test", ltpimgpos);
-//	waitKey();
-
 }
 
 void LTDP::compute_histblock(const cv::Mat& ltppos,const cv::Mat& ltpneg, float* feature)const
 {
 	CV_Assert(ltpneg.size() == ltpneg.size());
-
+//#pragma omp parallel for
 	for (int i = 0; i < ltppos.rows;++i)
 	{
 		const uchar *p = ltppos.ptr<uchar>(i);
@@ -123,7 +87,9 @@ void LTDP::compute_histblock(const cv::Mat& ltppos,const cv::Mat& ltpneg, float*
 		for (int j = 0; j < ltppos.cols;++j)
 		{
 			++feature[p[j]];
-			++feature[p[j] + 59];
+			++feature[n[j] + 59];
+			//++feature[p[j] + 59];
+
 		}
 	}
 }
@@ -135,10 +101,12 @@ void LTDP::compute_histwin(const cv::Mat& ltppos, const cv::Mat& ltpneg, vector<
 	features.resize(featurelen, 0);
 
 	Mat posblock, negblock;
-	for (int i = 0,p=0; i < numBlockC;++i)
+//#pragma omp parallel for
+	for (int i = 0; i < numBlockC;++i)
 	{
-		for (int j = 0; j < numBlockR;++j,++p)
+		for (int j = 0; j < numBlockR;++j)
 		{
+			int p = i*numBlockR + j;
 			Rect blockroi(j*blockSize.width, i*blockSize.height, blockSize.width, blockSize.height);
 
 			posblock = ltppos(blockroi);
@@ -245,8 +213,6 @@ void LTDP::compute(const cv::Mat & img, vector<float>& features) const
 	LUT(ltppos, lookUpTable, uniformltpos);
 	LUT(ltpneg, lookUpTable, uniformltpneg);
 	//imshow("test", uniformltpos);
-	//imwrite("pos.png", uniformltpos);
-	//imwrite("neg.png", uniformltpneg);
 	//waitKey();
 	compute_histwin(uniformltpos, uniformltpneg, features);
 }
@@ -254,37 +220,11 @@ void LTDP::compute(const cv::Mat & img, vector<float>& features) const
 void LTDP::setSvmDetector(const cv::Ptr<cv::ml::SVM>& _svm)
 {
 	ltdpsvm = _svm;
-	svmvec.clear();
-	Mat vec = ltdpsvm->getSupportVectors();
-	//int dim = sltpsvm->getVarCount();
-	Mat alpha, sdivx;
-	rho = ltdpsvm->getDecisionFunction(0, alpha, sdivx);
-	Mat resultMat = Mat::zeros(1, featurelen, CV_32FC1);
-	//cout << alpha << endl;
-	resultMat = -1 * vec;
-	for (int i = 0; i < vec.cols; ++i)
-	{
-		svmvec.push_back(resultMat.at<float>(0, i));
-	}
-	svmvec.push_back(rho);
 }
 
 void LTDP::loadSvmDetector(const string& xmlfile)
 {
 	ltdpsvm = ml::StatModel::load<ml::SVM>(xmlfile);
-	svmvec.clear();
-	Mat vec = ltdpsvm->getSupportVectors();
-	//int dim = sltpsvm->getVarCount();
-	Mat alpha, sdivx;
-	rho = ltdpsvm->getDecisionFunction(0, alpha, sdivx);
-	Mat resultMat = Mat::zeros(1, featurelen, CV_32FC1);
-	//cout << alpha << endl;
-	resultMat = -1 * vec;
-	for (int i = 0; i < vec.cols; ++i)
-	{
-		svmvec.push_back(resultMat.at<float>(0, i));
-	}
-	svmvec.push_back(rho);
 }
 
 void LTDP::detect(const cv::Mat& img, vector<cv::Point>& foundlocations, 
@@ -375,7 +315,7 @@ void LTDP::detect(const cv::Mat& img, vector<cv::Point>& foundlocations,
 			{
 				Point pt0;
 				Rect rt = Rect(i*winStride.width, j*winStride.height, winSize.width, winSize.height);
-				winimg = paddedimg(rt);
+				//winimg = paddedimg(rt);
 
 				pt0.x = i*winStride.width - padding.width;
 				pt0.y = j*winStride.height - padding.height;
@@ -385,20 +325,14 @@ void LTDP::detect(const cv::Mat& img, vector<cv::Point>& foundlocations,
 				uniformn = uniformneg(rt);
 				compute_histwin(uniformp, uniformn, feature);
 
-				//compute(winimg, feature);
-				//Mat result;
-				//float response = svm->predict(feature, result, ml::StatModel::RAW_OUTPUT);
-				//float response = ltdpsvm->predict(feature);
-				double response = rho;
-				for (int k = 0; k < feature.size(); ++k)
-				{
-					response += feature[k] * svmvec[k];
-				}
-				
-				if (response >= 0.0)
+				Mat result;
+				float response = ltdpsvm->predict(feature, result, ml::StatModel::RAW_OUTPUT);
+				response = result.at<float>(0, 0);
+			
+				if (response <= -hitThreshold)
 				{
 					foundlocations.push_back(pt0);
-					weights.push_back(response);
+					weights.push_back(-response);
 				}
 			}
 		}
@@ -411,7 +345,7 @@ void LTDP::detect(const cv::Mat& img, vector<cv::Point>& foundLocations, double 
 	detect(img, foundLocations, weights, hitThreshold, winStride, locations);
 }
 
-class Parallel_Detection :public ParallelLoopBody
+class Parallel_Detection_LTDP :public ParallelLoopBody
 {
 private:
 	const LTDP* ltdp;
@@ -425,7 +359,7 @@ private:
 	vector<double>* scales;
 
 public:
-	Parallel_Detection(const LTDP* _ltdp, const Mat& _img, double _hitThreshold, Size _winStride, const double* _levelScale,
+	Parallel_Detection_LTDP(const LTDP* _ltdp, const Mat& _img, double _hitThreshold, Size _winStride, const double* _levelScale,
 		vector<Rect>* _vec, Mutex* _mtx, vector<double>* _weights = 0, vector<double>* _scales = 0)
 	{
 		ltdp = _ltdp;
@@ -437,6 +371,7 @@ public:
 		vec = _vec;
 		weights = _weights;
 		scales = _scales;
+		//cout << "fk" << endl;
 	}
 
 	void operator() (const Range& range) const
@@ -448,7 +383,7 @@ public:
 		Mat smallerImgBuf(maxSz, img.type());
 		vector<Point> locations;
 		vector<double> hitsWeights;
-
+		//cout << "LTDP" << endl;
 		for (i = i1; i < i2; i++)
 		{
 			double scale = levelScale[i];
@@ -460,14 +395,11 @@ public:
 				resize(img, smallerImg, sz, 0.0, 0.0, INTER_NEAREST);
 			ltdp->detect(smallerImg, locations, hitsWeights, hitThreshold, winStride);
 			Size scaledWinSize = Size(cvRound(ltdp->winSize.width*scale), cvRound(ltdp->winSize.height*scale));
-
+			//cout << scaledWinSize << endl;
 			mtx->lock();
 
 			for (size_t j = 0; j < locations.size(); j++)
 			{
-				/*cout << "scale: " << scale << endl;
-				cout << "locations: " << cvRound(locations[j].x*scale) << " " << cvRound(locations[j].y*scale) << endl;
-				cout << "scaled WinSize: " << scaledWinSize.width << " " << scaledWinSize.height << endl;*/
 				vec->push_back(Rect(cvRound(locations[j].x*scale),
 					cvRound(locations[j].y*scale),
 					scaledWinSize.width, scaledWinSize.height));
@@ -478,6 +410,7 @@ public:
 			}
 			mtx->unlock();
 
+			//vec->clear();
 			if (weights && (!hitsWeights.empty()))
 			{
 				mtx->lock();
@@ -516,21 +449,15 @@ void LTDP::detectMultiScale(const cv::Mat& img, vector<cv::Rect>& foundlocations
 	levels = std::max(levels, 1);
 	levelScale.resize(levels);
 
-	vector<Rect> allCandidates;
-	vector<double> tempScales;
-	vector<double> tempWeights;
 	vector<double> foundScales;
+
+	weights.clear();
+	foundlocations.clear();
 
 	Mutex mtx;
 	parallel_for_(Range(0, levelScale.size()),
-		Parallel_Detection(this, img, hitThreshold, winStride, &levelScale[0], &allCandidates, &mtx, &tempWeights, &tempScales));
+		Parallel_Detection_LTDP(this, img, hitThreshold, winStride, &levelScale[0], &foundlocations, &mtx, &weights, &foundScales));
 
-	foundScales.clear();
-	std::copy(tempScales.begin(), tempScales.end(), back_inserter(foundScales));
-	foundlocations.clear();
-	std::copy(allCandidates.begin(), allCandidates.end(), back_inserter(foundlocations));
-	weights.clear();
-	std::copy(tempWeights.begin(), tempWeights.end(), back_inserter(weights));
 
 	if (usemeanshift)
 	{
