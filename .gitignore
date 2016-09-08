@@ -1,0 +1,10 @@
+Debug/
+x64/
+*.sln
+*.sdf
+*.csv
+*.txt
+*.png
+*.vcxproj
+*.filters
+

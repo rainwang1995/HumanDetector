@@ -1,0 +1,15 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ImportGroup Label="PropertySheets" />
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <IncludePath>F:\libraries\mlpack-2.0.1\include;F:\libraries\boost59\include\boost-1_59;F:\libraries\armadillo-6.500.5\include;$(IncludePath)</IncludePath>
+    <LibraryPath>F:\libraries\boost59\lib64-msvc-14.0;F:\libraries\tbb\lib\intel64\vc14;F:\libraries\armadillo-6.500.5\lib;F:\libraries\mlpack-2.0.1\lib;$(LibraryPath)</LibraryPath>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <Link>
+      <AdditionalDependencies>mlpack.lib;armadillo.lib;libopenblas.lib;lapack_win64_MT.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup />
+</Project>
