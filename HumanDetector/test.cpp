@@ -11,29 +11,7 @@ using namespace std;
 using namespace cv;
 
 int main()
-{
-	//test gp
-	//
-	vector<Rect> foundsx;
-	foundsx.push_back(Rect(5,5,10,10));
-	foundsx.push_back(Rect(6, 6, 11, 11));
-	foundsx.push_back(Rect(5, 5, 12, 12));
-	foundsx.push_back(Rect(7, 7, 9, 9));
-
-	vector<double> weightsx;
-	weightsx.push_back(0.5);
-	weightsx.push_back(0.4);
-	weightsx.push_back(0.8);
-	weightsx.push_back(0.4);
-	GraphProgation gp;
-
-	vector<Rect> frec;
-	double t = (double)getTickCount();
-	gp.mergeRects(foundsx, weightsx, frec);
-	cout << ((double)getTickCount()-t) / getTickFrequency() << endl;
-	//
-
-
+{	
 	CKinect kinetCtrl;
 	if (!kinetCtrl.Init())
 	{
@@ -44,7 +22,7 @@ int main()
 	int height = kinetCtrl.getDepthHeight();
 	Mat depthimg(height, width, CV_16UC1);
 	ushort* depthdata = (ushort*)depthimg.data;
-	/*while (true)
+	while (true)
 	{
 		kinetCtrl.UpdateDepth(depthdata);
 		Mat depth8U(height, width, CV_8U);
@@ -88,7 +66,7 @@ int main()
 		{
 			imwrite("hist.png", histimg);
 		}
-	}*/
+	}
 	depthimg = imread("depth000495.png", IMREAD_ANYDEPTH);
 	Mat depth8U(height, width, CV_8U);
 	depthimg.convertTo(depth8U, CV_8U, 255 / 8000.0);

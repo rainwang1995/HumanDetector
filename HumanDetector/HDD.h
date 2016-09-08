@@ -9,6 +9,7 @@
 #include <opencv2/ml.hpp>
 #include "Algorithm.hpp"
 
+
 class HDD :public DetectionAlgorithm
 {
 public:
@@ -60,7 +61,7 @@ public:
 	void computeGradient(const cv::Mat& img, cv::Mat& grad, cv::Mat& angleOfs,
 		cv::Size paddingTL = cv::Size(), cv::Size paddingBR = cv::Size()) const;
 
-	virtual ~HDD() { hddsvm.release(); svmvec.clear(); maskx.release(); masky.release(); }
+	virtual ~HDD() { hddsvm.release(); maskx.release(); masky.release(); }
 private:
 	void cal_parms();
 	void groupRectangles(vector<cv::Rect>& rectList, vector<double>& weights, int groupThreshold, double eps) const;
@@ -79,10 +80,58 @@ private:
 	//CV_PROP bool gammaCorrection;
 	//vector<float> svmDetector;
 	cv::Ptr<cv::ml::SVM> hddsvm;
-	vector<float> svmvec;
 	double rho;
 	int featurenlen;
 	cv::Mat maskx;
 	cv::Mat masky;
+};
+
+struct HDDCache
+{
+	struct BlockData
+	{
+		BlockData() : histOfs(0), imgOffset() {}
+		int histOfs;
+		cv::Point imgOffset;
+	};
+
+	struct PixData
+	{
+		size_t gradOfs, qangleOfs;
+		int histOfs[4];
+		float histWeights[4];
+		float gradWeight;
+	};
+
+	HDDCache();
+	HDDCache(const HDD* descriptor,
+		const cv::Mat& img, cv::Size paddingTL, cv::Size paddingBR,
+		bool useCache, cv::Size cacheStride);
+	virtual ~HDDCache() {};
+	virtual void init(const HDD* descriptor,
+		const cv::Mat& img, cv::Size paddingTL, cv::Size paddingBR,
+		bool useCache, cv::Size cacheStride);
+
+	cv::Size windowsInImage(cv::Size imageSize, cv::Size winStride) const;
+	cv::Rect getWindow(cv::Size imageSize, cv::Size winStride, int idx) const;
+
+	const float* getBlock(cv::Point pt, float* buf);
+	virtual void normalizeBlockHistogram(float* histogram) const;
+
+	vector<PixData> pixData;
+	vector<BlockData> blockData;
+
+	bool useCache;
+	vector<int> ymaxCached;
+	cv::Size winSize, cacheStride;
+	cv::Size nblocks, ncells;
+	int blockHistogramSize;
+	int count1, count2, count4;
+	cv::Point imgoffset;
+	cv::Mat_<float> blockCache;
+	cv::Mat_<uchar> blockCacheFlags;
+
+	cv::Mat grad, qangle;
+	const HDD* descriptor;
 };
 #endif

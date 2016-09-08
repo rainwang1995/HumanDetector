@@ -131,7 +131,7 @@ void SLTPB::detect(const cv::Mat& img, vector<cv::Point>& foundlocations, vector
 						{
 							Rect blockrect = Rect(k*blockStride.width, h*blockStride.height, blockSize.width, blockSize.height);
 							Mat blockroi = winbin(blockrect);
-							Point blockpt = Point(blockindexrow, blockindexcol);
+							Point blockpt = Point(blockindexcol+k, blockindexrow+h);
 
 							getblockhist(blockroi, blockpt, &featurewin[p * 4 * 9], featuresimg, cptflags, blockperrow);
 						}
@@ -249,6 +249,7 @@ void SLTPB::detectMultiScale(const cv::Mat& img, vector<cv::Rect>& foundlocation
 		return;
 	}
 	double scale = 1.;
+	scale0 = 1.1;
 	int levels = 0;
 	vector<double> levelScale;
 	for (levels = 0; levels < nlevels; ++levels)
@@ -283,7 +284,7 @@ void SLTPB::detectMultiScale(const cv::Mat& img, vector<cv::Rect>& foundlocation
 	}
 	else
 	{
-		groupRectangles(foundlocations, weights, (int)finalThreshold, 0.2);
+		//groupRectangles(foundlocations, weights, (int)finalThreshold, 0.2);
 	}
 }
 
@@ -381,7 +382,7 @@ void SLTPB::getblockhist(const cv::Mat& blockimg, Point pt, float* blockhist, ve
 	int index = pt.y*blockperrow + pt.x;
 	if (flags[index])
 	{
-		memcpy(blockhist, &imagehist[index], sizeof(float) * 4 * 9);
+		memcpy(blockhist, &imagehist[index][0], sizeof(float) * 4 * 9);
 		return;
 	}
 
@@ -607,7 +608,7 @@ void SLTPB::normalizeBlockHistogram(float* blockhist) const
 	for (i = 0; i < sz; i++)
 		sum += hist[i] * hist[i];
 
-	float scale = 1.f / (std::sqrt(sum) + sz*0.1f), thresh = 0.2;
+	float scale = 1.f / (std::sqrt(sum) + sz*0.1f), thresh = 0.8;
 
 	for (i = 0, sum = 0; i < sz; i++)
 	{

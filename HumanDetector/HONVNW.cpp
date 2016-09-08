@@ -227,6 +227,7 @@ void HONVNW::detectMultiScale(const cv::Mat& img, vector<cv::Rect>& foundlocatio
 		return;
 	}
 	double scale = 1.;
+	scale0 = 1.1;
 	int levels = 0;
 	vector<double> levelScale;
 	for (levels = 0; levels < nlevels; ++levels)
@@ -254,13 +255,6 @@ void HONVNW::detectMultiScale(const cv::Mat& img, vector<cv::Rect>& foundlocatio
 	Mutex mtx;
 	parallel_for_(Range(0, levelScale.size()),
 		Parallel_Detection_HONV(this, img, hitThreshold, winStride, &levelScale[0], &foundlocations, &mtx, &weights, &foundScales));
-
-	//foundScales.clear();
-	//std::copy(tempScales.begin(), tempScales.end(), back_inserter(foundScales));
-	//foundlocations.clear();
-	//std::copy(allCandidates.begin(), allCandidates.end(), back_inserter(foundlocations));
-	//weights.clear();
-	//std::copy(tempWeights.begin(), tempWeights.end(), back_inserter(weights));
 
 	if (usemeanshift)
 	{
@@ -506,7 +500,7 @@ void HONVNW::compute_win(Mat& src, Mat& binindex) const
 
 void HONVNW::groupRectangles(vector<cv::Rect>& rectList, vector<double>& weights, int groupThreshold, double eps) const
 {
-	if (groupThreshold <= 0 || rectList.empty())
+	if (groupThreshold <= 0 || rectList.empty()||rectList.size()==1)
 	{
 		return;
 	}

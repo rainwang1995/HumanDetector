@@ -4,11 +4,11 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup>
     <IncludePath>D:\3rdPartyLibs\mlpack-2.0.1\mlpack-2.0.1\include;D:\3rdPartyLibs\armadillo-6.500.5\armadillo-6.500.5\include;$(IncludePath)</IncludePath>
-    <LibraryPath>D:\3rdPartyLibs\mlpack-2.0.1\mlpack-2.0.1\lib;D:\3rdPartyLibs\armadillo-6.500.5\armadillo-6.500.5\lib;$(LibraryPath)</LibraryPath>
+    <LibraryPath>D:\3rdPartyLibs\mlpack-2.0.1\mlpack-2.0.1\lib;D:\3rdPartyLibs\armadio\include\;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup>
     <Link>
-      <AdditionalDependencies>mlpack.lib;armadillo.lib;blas_win64_MT.lib;lapack_win64_MT.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>mlpack.lib;armadillo.lib;libopenblas.lib;lapack_win64_MT.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup />

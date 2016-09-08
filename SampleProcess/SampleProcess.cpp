@@ -123,29 +123,29 @@ int main(int argc, char* argv[])
 				
 			}
 		}
-		//if (src.cols >= 64 && src.rows >= 128)
-		//{
-		//	srand(time(NULL));//设置随机数种子
-  //      //从每张图片中随机裁剪10个64*128大小的不包含人的负样本
-		//	for (int j = 0; j < 10; j++)
-		//	{
-		//		int x = (rand() % (src.cols - 64)); //x坐标
-		//		int y = (rand() % (src.rows - 128)); //y坐标
-		//		
-		//		string filename = files[i];
-		//		filename.erase(filename.end() - 4, filename.end());
-		//		Mat imgROI = src(Rect(x, y, 64, 128));
-		//		string imagepath = savepath + filename + "_%03d.png";
-		//		sprintf(saveName, imagepath.c_str(), j);//生成裁剪出的负样本图片的文件名
-		//		imwrite(saveName, imgROI);//保存文件
+		if (src.cols >= 64 && src.rows >= 128)
+		{
+			srand(time(NULL));//设置随机数种子
+        //从每张图片中随机裁剪10个64*128大小的不包含人的负样本
+			for (int j = 0; j < 10; j++)
+			{
+				int x = (rand() % (src.cols - 64)); //x坐标
+				int y = (rand() % (src.rows - 128)); //y坐标
+				
+				string filename = files[i];
+				filename.erase(filename.end() - 4, filename.end());
+				Mat imgROI = src(Rect(x, y, 64, 128));
+				string imagepath = savepath + filename + "_%03d.png";
+				sprintf(saveName, imagepath.c_str(), j);//生成裁剪出的负样本图片的文件名
+				imwrite(saveName, imgROI);//保存文件
 
-		//		
-		//		Mat imgflip;//反转
-		//		flip(imgROI, imgflip,1);
-		//		sprintf(saveName, (savepath+filename + "_%03d.png").c_str(), j+10);//生成裁剪出的负样本图片的文件名
-		//		imwrite(saveName, imgflip);//保存文件
-		//	}
-		//}
+				
+				Mat imgflip;//反转
+				flip(imgROI, imgflip,1);
+				sprintf(saveName, (savepath+filename + "_%03d.png").c_str(), j+10);//生成裁剪出的负样本图片的文件名
+				imwrite(saveName, imgflip);//保存文件
+			}
+		}
 	}
 
 	system("pause");

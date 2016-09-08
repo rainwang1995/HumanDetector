@@ -16,9 +16,9 @@ public:
 		box = cv::Rect();
 		weight = 0;
 	}
-	DetectionResult(cv::Rect _box,float _w):box(_box),weight(_w){}
+	DetectionResult(cv::Rect _box,double _w):box(_box),weight(_w){}
 	cv::Rect box;
-	float weight;
+	double weight;
 };
 
 struct Missratefppi
@@ -31,11 +31,19 @@ typedef map<string, vector<DetectionResult> > mapresults;
 
 void readannotation(const string& path, mapresults& annotation);
 
-void readresults(const string& path,const string& path2, mapresults& results);
+void readresults(const string& path, mapresults& results, vector<double>& scores);
 
-Missratefppi computemissratefppi(mapresults& annotation, mapresults& results, float hitThreshold);
+void readfppw(const string& path, mapresults& results);
 
-Missratefppi computemissratefppi(const string& path1, const string& path2,const string& path3, float hitThreshold);
+void filterresult(const mapresults& results, mapresults& filtered, double thr);
+
+Missratefppi computemissratefppi(mapresults& annotation, mapresults& results);
+
+Missratefppi computemissratefppw(mapresults& annotation, mapresults& results);
+
+//Missratefppi computemissratefppi(const string& path1, const string& path2,const string& path3, float hitThreshold);
 
 float computeoverlap(cv::Rect a, cv::Rect b);
+
+void groupRectangles(vector<cv::Rect>& rectList, vector<double>& weights, int groupThreshold=2, double eps=0.2);
 #endif

@@ -32,7 +32,7 @@ public:
 	virtual void detect(const cv::Mat& img,vector<cv::Point>& foundlocations,vector<double>& weights,double hitThreshold=0,cv::Size winStride=cv::Size(),const vector<cv::Point>& locations=vector<cv::Point>())const;
 	virtual void detectMultiScale(const cv::Mat& img, vector<cv::Rect>& foundlocations, vector<double>& weights, double hitThreshold = 0, cv::Size winStride = cv::Size(), double nlevels=64,double scale0 = 1.1, double finalThreshold = 2.0,  bool usemeanshift = false)const;
 	virtual void detect(const cv::Mat& img, vector<cv::Point>& foundLocations, double hitThreshold = 0, cv::Size winStride = cv::Size(), const vector<cv::Point>& locations = vector<cv::Point>()) const;
-	virtual void detectMultiScale(const cv::Mat& img, vector<cv::Rect>& foundlocations, double hitThreshold = 0, cv::Size winStride = cv::Size(), double nlevels = 64, double scale0 = 1.05, double finalThreshold = 2.0, bool usemeanshift = false)const;
+	virtual void detectMultiScale(const cv::Mat& img, vector<cv::Rect>& foundlocations, double hitThreshold = 0, cv::Size winStride = cv::Size(), double nlevels = 64, double scale0 = 1.1, double finalThreshold = 2.0, bool usemeanshift = false)const;
 	virtual void set_signThreshold(const int _signThreshold) { signThreshold = _signThreshold; }
 	virtual ~SLTP() { maskdx.release(), maskdy.release(); sltpsvm.release(); }
 private:
@@ -47,6 +47,8 @@ private:
 	void groupRectangles(vector<cv::Rect>& rectList, vector<double>& weights, int groupThreshold, double eps) const;
 	void compute_img(const cv::Mat& img, vector<float>& features)const;//compute a image's SLTP cell by cell to  accelerate detection speed
 	void get_winfeature(vector<float>& featuresimg, vector<float>& featureswin, cv::Point& startpos,int cellimgcols)const;
+	void normalizeBlockHistogram(float* blockhist)const;
+
 public:
 	cv::Size winSize;//检测窗口大小
 	cv::Size cellSize;//分块大小

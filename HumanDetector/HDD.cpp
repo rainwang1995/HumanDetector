@@ -2,54 +2,7 @@
 #include <iterator>
 using namespace cv;
 
-struct HDDCache
-{
-	struct BlockData
-	{
-		BlockData() : histOfs(0), imgOffset() {}
-		int histOfs;
-		Point imgOffset;
-	};
 
-	struct PixData
-	{
-		size_t gradOfs, qangleOfs;
-		int histOfs[4];
-		float histWeights[4];
-		float gradWeight;
-	};
-
-	HDDCache();
-	HDDCache(const HDD* descriptor,
-		const Mat& img, Size paddingTL, Size paddingBR,
-		bool useCache, Size cacheStride);
-	virtual ~HDDCache() {};
-	virtual void init(const HDD* descriptor,
-		const Mat& img, Size paddingTL, Size paddingBR,
-		bool useCache, Size cacheStride);
-
-	Size windowsInImage(Size imageSize, Size winStride) const;
-	Rect getWindow(Size imageSize, Size winStride, int idx) const;
-
-	const float* getBlock(Point pt, float* buf);
-	virtual void normalizeBlockHistogram(float* histogram) const;
-
-	vector<PixData> pixData;
-	vector<BlockData> blockData;
-
-	bool useCache;
-	vector<int> ymaxCached;
-	Size winSize, cacheStride;
-	Size nblocks, ncells;
-	int blockHistogramSize;
-	int count1, count2, count4;
-	Point imgoffset;
-	Mat_<float> blockCache;
-	Mat_<uchar> blockCacheFlags;
-
-	Mat grad, qangle;
-	const HDD* descriptor;
-};
 
 HDDCache::HDDCache(const HDD* _descriptor,
 	const Mat& _img, Size _paddingTL, Size _paddingBR,
@@ -398,33 +351,11 @@ Rect HDDCache::getWindow(Size imageSize, Size winStride, int idx) const
 void HDD::setSvmDetector(const cv::Ptr<cv::ml::SVM>& _svm)
 {
 	hddsvm = _svm;
-	svmvec.clear();
-	Mat vec = hddsvm->getSupportVectors();
-	//int dim = sltpsvm->getVarCount();
-	Mat alpha, sdivx;
-	rho = hddsvm->getDecisionFunction(0, alpha, sdivx);
-	Mat resultMat = -1 * vec;
-	for (int i = 0; i < vec.cols; ++i)
-	{
-		svmvec.push_back(resultMat.at<float>(0, i));
-	}
-	svmvec.push_back(rho);
 }
 
 void HDD::loadSvmDetector(const string& xmlfile)
 {
 	hddsvm = ml::StatModel::load <ml::SVM>(xmlfile);
-	svmvec.clear();
-	Mat vec = hddsvm->getSupportVectors();
-	//int dim = sltpsvm->getVarCount();
-	Mat alpha, sdivx;
-	rho = hddsvm->getDecisionFunction(0, alpha, sdivx);
-	Mat resultMat = -1 * vec;
-	for (int i = 0; i < vec.cols; ++i)
-	{
-		svmvec.push_back(resultMat.at<float>(0, i));
-	}
-	svmvec.push_back(rho);
 }
 
 void HDD::compute(const cv::Mat& img, vector<float>& features) const
@@ -519,8 +450,7 @@ void HDD::detect(const cv::Mat& img, vector<cv::Point>& foundlocations,
 		
 		int j, k;
 
-		const float* svmVec = &svmvec[0];
-		for (j = 0; j < nblocks; j++,svmvec)
+		for (j = 0; j < nblocks; j++)
 		{
 			const HDDCache::BlockData& bj = blockData[j];
 			Point pt = pt0 + bj.imgOffset;
@@ -539,19 +469,7 @@ void HDD::detect(const cv::Mat& img, vector<cv::Point>& foundlocations,
 		{
 			foundlocations.push_back(pt0);
 			weights.push_back(-response);
-		}
-
-		/*double response = rho;
-		for (int k = 0; k < winHist.size(); ++k)
-		{
-			response += winHist[k] * svmvec[k];
-		}*/
-		/*if (response >= hitThreshold)
-		{
-			foundlocations.push_back(pt0);
-			weights.push_back(response);
-		}*/
-		
+		}		
 	}
 }
 
@@ -638,11 +556,11 @@ public:
 	Mutex* mtx;
 };
 
-void HDD::detectMultiScale(const cv::Mat& img, vector<cv::Rect>& foundlocations, vector<double>& weights, double hitThreshold /*= 0*/, cv::Size winStride /*= cv::Size()*/, double nlevels /*= 64*/, double scale0 /*= 1.05*/, double finalThreshold /*= 2.0*/, bool usemeanshift /*= false*/) const
+void HDD::detectMultiScale(const cv::Mat& img, vector<cv::Rect>& foundlocations, vector<double>& weights, double hitThreshold /*= 0*/, cv::Size winStride /*= cv::Size()*/, double nlevels /*= 64*/, double scale0 /*= 1.1*/, double finalThreshold /*= 2.0*/, bool usemeanshift /*= false*/) const
 {
 	double scale = 1.;
 	int levels = 0;
-
+	scale0 = 1.1;
 	vector<double> levelScale;
 	for (levels = 0; levels < nlevels; levels++)
 	{
@@ -811,7 +729,8 @@ void HDD::computeGradient(const Mat& img, Mat& grad, Mat& angleOfs, Size padding
 	filter2D(imgPadded, Dx, CV_32FC1, maskx);
 	filter2D(imgPadded, Dy, CV_32FC1, masky);
 
-	
+	//Dx.setTo(0, imgPadded == 0);
+	//Dy.setTo(0, imgPadded == 0);
 
 	int _nbins = nbins;
 	float angleScale = (float)(_nbins / (2 * CV_PI));

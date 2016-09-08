@@ -56,12 +56,12 @@ void SLTP2::compute_dxdy(const Mat& img, Mat& dx, Mat& dy) const
 	filter2D(img, dy, CV_32FC1, maskdy);
 }
 
-void SLTP2::compute_sign(const Mat& dimg, Mat& signimg, int thr)const
+void SLTP2::compute_sign(const Mat& dimg, Mat& signimg, int thrpos, int thrneg)const
 {
 	signimg = Mat::zeros(dimg.size(), CV_8SC1);
 
-	signimg.setTo(-1, dimg <= -thr);
-	signimg.setTo(1, dimg >= thr);
+	signimg.setTo(-1, dimg <= -thrneg);
+	signimg.setTo(1, dimg >= thrpos);
 }
 
 void SLTP2::compute_histcell(const Mat& signimgx, const Mat& signimgy, vector<float>& hist) const
@@ -114,17 +114,28 @@ void SLTP2::compute_histwin_thr(const cv::Mat& imgdx, const cv::Mat& imgdy, vect
 
 	hist.resize(9 * numCellcols*numCellrows, 0);
 
-	//cout << imgdx << endl;
+	double maxv, minv;
+	
 
+	//cout << imgdx << endl;
+	Mat posdx,posdy;
+	imgdx.copyTo(posdx,imgdx>0);
+	imgdy.copyTo(posdy, imgdy > 0);
+	double sumposx = sum(posdx)[0];
+	double sumposy = sum(posdy)[0];
 	double sumx = sum(abs(imgdx))[0];
 	double sumy = sum(abs(imgdy))[0];
+	double sumnegx = sumx - sumposx;
+	double sumnegy = sumy - sumposy;
 
-	int thx = round(sumx / (imgdx.size().area()));
-	int thy = round(sumy / (imgdy.size().area()));
+	int thxpos = round(sumposx / (imgdx.size().area()));
+	int thxneg = round(sumnegx / (imgdx.size().area()));
+	int thypos = round(sumposy / (imgdy.size().area()));
+	int thyneg = round(sumnegy / (imgdx.size().area()));
 
 	Mat signimgx, signimgy;
-	compute_sign(imgdx, signimgx, thx);
-	compute_sign(imgdy, signimgy, thy);
+	compute_sign(imgdx, signimgx, thxpos, thxneg);
+	compute_sign(imgdy, signimgy, thypos, thyneg);
 	//scan all cells
 	//#pragma omp parallel
 	{
@@ -248,20 +259,6 @@ void SLTP2::setSvmDetector(const cv::Ptr<cv::ml::SVM>& _svm)
 void SLTP2::loadSvmDetector(const string & xmlfile)
 {
 	sltpsvm = ml::StatModel::load<ml::SVM>(xmlfile);
-	//svmvec.clear();
-	//Mat vec = SLTP2svm->getSupportVectors();
-	////int dim = SLTP2svm->getVarCount();
-	//Mat alpha, sdivx;
-	//rho = SLTP2svm->getDecisionFunction(0, alpha, sdivx);
-	//Mat resultMat = Mat::zeros(1, featurelen, CV_32FC1);
-	////cout << alpha << endl;
-	//resultMat = -1*vec;
-	//const float* resultptr = resultMat.ptr<float>(0);
-	//for (int i = 0; i < vec.cols; ++i)
-	//{
-	//	svmvec.push_back(resultptr[i]);
-	//}
-	//svmvec.push_back(rho);
 }
 
 void SLTP2::detect(const cv::Mat& img, vector<cv::Point>& foundlocations, vector<double>& weights, double hitThreshold/*=0*/, cv::Size winStride/*=cv::Size()*/, const vector<cv::Point>& locations/*=vector<cv::Point>()*/) const

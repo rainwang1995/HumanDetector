@@ -246,8 +246,107 @@ void Utils::NonMaximalSuppression(vector<cv::Rect>& rects, vector<double>& weigh
 {
 	
 	Utils::NonMaximumSuppression::eliminateRedundantDetections(rects, weights, overlap, etype);
+}
 
-	
+void Utils::NonMaximalSuppression2(vector<cv::Rect>& rects, vector<double>& weights, float overlap, int etype /*= 1*/)
+{
+	Utils::NonMaximumSuppression::eliminateRedundantDetections(rects, weights, overlap, etype);
+	vector<Rect> found_filterd;
+	vector<double> weight_filterd;
+	int i, j;
+	for ( i = 0; i < rects.size(); i++)
+	{
+		Rect r = rects[i];
+
+		for (j = 0; j < rects.size(); j++)
+			if (j != i && (r&rects[j]) == r)
+				break;
+		if (j == rects.size())
+		{
+			found_filterd.push_back(r);
+			weight_filterd.push_back(weights[i]);
+		}
+	}
+
+	rects.swap(found_filterd);
+	weights.swap(weight_filterd);
+}
+
+void Utils::extract_contours(cv::Mat& depthimg, cv::Point seeds, cv::Mat& body)
+{
+	Mat region = Mat::zeros(depthimg.size(), CV_8U);
+
+	region_grow(depthimg, seeds, region);
+	depthimg.copyTo(body, (region == CONTOURS));
+}
+
+void Utils::region_grow(cv::Mat& depthimg, cv::Point seed, cv::Mat& region)
+{
+	float depthavg = depthimg.at<ushort>(seed);
+	vector<DepthSimilarity> edgesbefore, edgesafer;
+	edgesbefore.push_back(DepthSimilarity(seed, 0));
+	region.at<uchar>(seed) = CONTOURS;
+
+	while (true)
+	{
+		get_neighborings(depthimg, region, edgesbefore, depthavg, edgesafer);
+		if (edgesafer.empty())
+		{
+			break;
+		}
+		edgesbefore.swap(edgesafer);
+		depthavg = mean(depthimg, (region == CONTOURS))[0];
+		edgesafer.clear();
+	}	
+}
+
+void Utils::get_neighborings(cv::Mat & depthimg, cv::Mat & region, vector<DepthSimilarity>& edgesbefore, float depthbefore, vector<DepthSimilarity>& edgesafter)
+{
+	Point offset[4] = { { -1,0 },{ 0,-1 },{ 1,0 },{ 0,1 } };
+	DepthSimilarity ds;
+	int width = depthimg.cols;
+	int height = depthimg.rows;
+	for (int i = 0; i < edgesbefore.size(); ++i)
+	{
+		for (int j = 0; j < 4; ++j)
+		{
+			Point pt = edgesbefore[i].point + offset[j];
+			if (pt.x >= width || pt.y >= height || pt.x < 0 || pt.y < 0)
+			{
+				continue;
+			}
+			if (depthimg.at<ushort>(pt) != 0)
+			{
+				if (region.at<uchar>(pt) == NOVISITED)
+				{
+					float similarity = (float)depthimg.at<ushort>(pt) - depthbefore;
+
+					if (similarity <= 0.0&&abs(similarity) <= depth_thrf)
+					{
+						ds.point = pt;
+						ds.similarity = similarity;
+
+						edgesafter.push_back(ds);
+					region.at<uchar>(pt) = CONTOURS;
+					}
+					else if (similarity >= 0.0&&similarity <= depth_thrb)
+					{
+						ds.point = pt;
+						ds.similarity = similarity;
+
+						edgesafter.push_back(ds);
+					region.at<uchar>(pt) = CONTOURS;
+					}
+					else
+						region.at<uchar>(pt) = VISITED;
+				}
+
+			}
+			else
+				region.at<uchar>(pt) = VISITED;
+
+		}
+	}
 }
 
 void Utils::meanShift::Cluster(const vector<Point2f>& points, vector<int>& labels, vector<Point2f>& centers)
@@ -331,8 +430,8 @@ vector<Utils::Detection> Utils::NonMaximumSuppression::extractOverlappingDetecti
 double Utils::NonMaximumSuppression::computeOverlap(cv::Rect a, cv::Rect b)
 {
 	double intersectionArea = (a & b).area();
-	double unionArea = a.area() + b.area() - intersectionArea;
-	return intersectionArea / unionArea;
+	//double unionArea = a.area() + b.area() - intersectionArea;
+	return intersectionArea / a.area();
 }
 
 void Utils::NonMaximumSuppression::getMaxima(const vector<vector<Detection> >& clusters, vector<Detection>& finalDetections)

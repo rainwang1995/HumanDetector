@@ -38,7 +38,7 @@ public:
 	virtual void detect(const cv::Mat& img, vector<cv::Point>& foundLocations, double hitThreshold = 0, cv::Size winStride = cv::Size(), 
 		const vector<cv::Point>& locations = vector<cv::Point>()) const;
 	virtual void detectMultiScale(const cv::Mat& img, vector<cv::Rect>& foundlocations, double hitThreshold = 0, cv::Size winStride = cv::Size(), 
-		double nlevels = 64, double scale0 = 1.05, double finalThreshold = 2.0, bool usemeanshift = false)const;
+		double nlevels = 64, double scale0 = 1.1, double finalThreshold = 2.0, bool usemeanshift = false)const;
 
 	virtual void set_signThreshold(const int _pthreshold) { pthreshold = _pthreshold; }
 
@@ -70,6 +70,8 @@ private:
 	void compute_histwin(const cv::Mat& ltppos, const cv::Mat& ltpneg, vector<float>& features)const;
 	void groupRectangles(vector<cv::Rect>& rectList, vector<double>& weights, int groupThreshold, double eps) const;
 	void compute_Ltpimg(const cv::Mat& src, cv::Mat& uniformp, cv::Mat& uniformn)const;
+	void normalizeBlockHistogram(float* blockhist)const;
+
 };
 
 #endif

@@ -8,8 +8,32 @@
 using namespace std;
 using namespace mlpack;
 using namespace mlpack::meanshift;
+
+const ushort depth_thrf = 1000;
+const ushort depth_thrb = 200;
+
 namespace Utils
 {
+	enum MASKFLAG
+	{
+		NOVISITED,
+		CONTOURS,
+		VISITED
+	};
+
+	class DepthSimilarity
+	{
+	public:
+		cv::Point point;
+		float similarity;
+		DepthSimilarity() :point(0, 0), similarity(0.0) {}
+		DepthSimilarity(cv::Point p, float s) :point(p), similarity(s) {}
+		bool operator<(const DepthSimilarity& rhs)const
+		{
+			return similarity < rhs.similarity;
+		}
+	};
+
 	class Histogram
 	{
 	public:
@@ -38,6 +62,13 @@ namespace Utils
 
 	void NonMaximalSuppression(vector<cv::Rect>& rects, vector<double>& weights, float overlap,int etype=1);
 
+	void NonMaximalSuppression2(vector<cv::Rect>& rects, vector<double>& weights, float overlap, int etype = 1);
+
+	void extract_contours(cv::Mat& depthimg, cv::Point seeds, cv::Mat& body);
+
+	void region_grow(cv::Mat& depthimg, cv::Point seed, cv::Mat& region);
+
+	void get_neighborings(cv::Mat & depthimg, cv::Mat & region, vector<DepthSimilarity>& edgesbefore, float depthbefore, vector<DepthSimilarity>& edgesafter);
 	struct Detection {
 		float score;
 		cv::Rect bounds;

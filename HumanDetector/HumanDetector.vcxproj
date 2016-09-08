@@ -67,8 +67,8 @@
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="Opencv3X64.props" />
-    <Import Project="mlpack.props" />
+    <Import Project="..\mlpack.props" />
+    <Import Project="..\OpenCV3.1.props" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -134,33 +134,47 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="Algorithm.hpp" />
-    <ClInclude Include="CKinect.h" />
+    <ClInclude Include="ccafusion.h" />
+    <ClInclude Include="DCAfusion.h" />
+    <ClInclude Include="ELDP.h" />
     <ClInclude Include="Graphpropagation.h" />
     <ClInclude Include="HDD.h" />
     <ClInclude Include="HONVNW.h" />
     <ClInclude Include="LDPK.h" />
     <ClInclude Include="LTDP.h" />
+    <ClInclude Include="MPLDPK.h" />
     <ClInclude Include="opencvHeader.h" />
     <ClInclude Include="our_fmm.hpp" />
+    <ClInclude Include="PELDP.h" />
+    <ClInclude Include="platt_scaling.h" />
+    <ClInclude Include="PLDPK.h" />
     <ClInclude Include="preprocess.h" />
-    <ClInclude Include="PSLTP.h" />
+    <ClInclude Include="RDSF.h" />
     <ClInclude Include="SLTP.h" />
     <ClInclude Include="SLTP2.h" />
+    <ClInclude Include="SLTP3.h" />
     <ClInclude Include="SLTPB.h" />
     <ClInclude Include="Utils.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="CKinect.cpp" />
+    <ClCompile Include="ccafusion.cpp" />
+    <ClCompile Include="DCAfusion.cpp" />
+    <ClCompile Include="ELDP.cpp" />
     <ClCompile Include="Graphpropagation.cpp" />
     <ClCompile Include="HDD.cpp" />
     <ClCompile Include="HONVNW.cpp" />
     <ClCompile Include="LDPK.cpp" />
     <ClCompile Include="LTDP.cpp" />
+    <ClCompile Include="MPLDPK.cpp" />
     <ClCompile Include="our_fmm.cpp" />
+    <ClCompile Include="PELDP.cpp" />
+    <ClCompile Include="platt_scaling.cpp" />
+    <ClCompile Include="PLDPK.cpp" />
     <ClCompile Include="preprocess.cpp" />
-    <ClCompile Include="PSLTP.cpp" />
+    <ClCompile Include="RDSF.cpp" />
     <ClCompile Include="SLTP.cpp" />
     <ClCompile Include="SLTP2.cpp" />
+    <ClCompile Include="SLTP3.cpp" />
     <ClCompile Include="SLTPB.cpp" />
     <ClCompile Include="test.cpp" />
     <ClCompile Include="Utils.cpp" />

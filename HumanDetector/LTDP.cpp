@@ -7,7 +7,7 @@ void LTDP::setDefaultParams()
 {
 	winSize = Size(64, 128);
 	blockSize = Size(16, 16);
-	pthreshold = 120;
+	pthreshold = 70;
 }
 
 void LTDP::cal_params()
@@ -63,22 +63,22 @@ void LTDP::compute_Ltpvalue(const cv::Mat& src, cv::Mat& ltpimgpos,cv::Mat& ltpi
 		filter2D(src, dismap,CV_32FC1, masks[i]);
 
 		Mat mask1 = (dismap >= pthreshold);
-		LUT(mask1, lookUpTable2, mask1);
-		//mask1.setTo(1, mask1 != 0);
+		//LUT(mask1, lookUpTable2, mask1);
+		mask1.setTo(1, mask1 != 0);
 		ltpimgpos += ((1 << (7 - i))*mask1);
 
 		//imshow("test", ltpimgpos);
 		//waitKey();
 		Mat mask2 = (dismap<= -pthreshold);
-		LUT(mask2, lookUpTable2, mask2);
-		//mask2.setTo(1, mask2 != 0);
+		//LUT(mask2, lookUpTable2, mask2);
+		mask2.setTo(1, mask2 != 0);
 		ltpimgneg += ((1 << (7 - i))*mask2);
 	}
 }
 
 void LTDP::compute_histblock(const cv::Mat& ltppos,const cv::Mat& ltpneg, float* feature)const
 {
-	CV_Assert(ltpneg.size() == ltpneg.size());
+	CV_Assert(ltppos.size() == ltpneg.size());
 //#pragma omp parallel for
 	for (int i = 0; i < ltppos.rows;++i)
 	{
@@ -89,9 +89,10 @@ void LTDP::compute_histblock(const cv::Mat& ltppos,const cv::Mat& ltpneg, float*
 			++feature[p[j]];
 			++feature[n[j] + 59];
 			//++feature[p[j] + 59];
-
 		}
 	}
+
+	normalizeBlockHistogram(feature);
 }
 
 void LTDP::compute_histwin(const cv::Mat& ltppos, const cv::Mat& ltpneg, vector<float>& features)const
@@ -119,7 +120,7 @@ void LTDP::compute_histwin(const cv::Mat& ltppos, const cv::Mat& ltpneg, vector<
 
 void LTDP::groupRectangles(vector<cv::Rect>& rectList, vector<double>& weights, int groupThreshold, double eps) const
 {
-	if (groupThreshold <= 0 || rectList.empty())
+	if (groupThreshold <= 0 || rectList.empty()||rectList.size()==1)
 	{
 		return;
 	}
@@ -202,6 +203,29 @@ void LTDP::compute_Ltpimg(const cv::Mat& src, cv::Mat& uniformp, cv::Mat& unifor
 
 	LUT(ltppos, lookUpTable, uniformp);
 	LUT(ltpneg, lookUpTable, uniformn);
+}
+
+void LTDP::normalizeBlockHistogram(float * blockhist) const
+{
+	float* hist = &blockhist[0];
+	size_t i, sz = 118;
+
+	float sum = 0;
+	for (i = 0; i < sz; i++)
+		sum += hist[i] * hist[i];
+
+	float scale = 1.f / (std::sqrt(sum) + sz*0.1f), thresh = 0.8;
+
+	for (i = 0, sum = 0; i < sz; i++)
+	{
+		hist[i] = std::min(hist[i] * scale, thresh);
+		sum += hist[i] * hist[i];
+	}
+
+	scale = 1.f / (std::sqrt(sum) + 1e-3f);
+
+	for (i = 0; i < sz; i++)
+		hist[i] *= scale;
 }
 
 void LTDP::compute(const cv::Mat & img, vector<float>& features) const
@@ -315,7 +339,7 @@ void LTDP::detect(const cv::Mat& img, vector<cv::Point>& foundlocations,
 			{
 				Point pt0;
 				Rect rt = Rect(i*winStride.width, j*winStride.height, winSize.width, winSize.height);
-				//winimg = paddedimg(rt);
+				winimg = paddedimg(rt);
 
 				pt0.x = i*winStride.width - padding.width;
 				pt0.y = j*winStride.height - padding.height;
@@ -325,6 +349,7 @@ void LTDP::detect(const cv::Mat& img, vector<cv::Point>& foundlocations,
 				uniformn = uniformneg(rt);
 				compute_histwin(uniformp, uniformn, feature);
 
+				//compute(winimg, feature);
 				Mat result;
 				float response = ltdpsvm->predict(feature, result, ml::StatModel::RAW_OUTPUT);
 				response = result.at<float>(0, 0);
@@ -432,6 +457,8 @@ void LTDP::detectMultiScale(const cv::Mat& img, vector<cv::Rect>& foundlocations
 		return;
 	}
 	double scale = 1.;
+	scale0 = 1.1;
+
 	int levels = 0;
 	vector<double> levelScale;
 	for (levels = 0; levels < nlevels; ++levels)

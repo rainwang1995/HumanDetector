@@ -1,5 +1,6 @@
 #include "SLTP.h"
 #include <iterator>
+#include "Utils.h"
 using namespace cv;
 
 void SLTP::compute(const Mat& img, vector<float>& features) const
@@ -106,6 +107,8 @@ void SLTP::compute_histcell(const Mat& signimgx, const Mat& signimgy, float* his
 			++hist[mode];
 		}
 	}
+
+	normalizeBlockHistogram(hist);
 }
 
 void SLTP::compute_histwin(const Mat& signimgx, const Mat& signimgy, vector<float>& hist) const
@@ -244,6 +247,29 @@ void SLTP::get_winfeature(vector<float>& featuresimg, vector<float>& featureswin
 	}
 }
 
+void SLTP::normalizeBlockHistogram(float* blockhist) const
+{
+	float* hist = &blockhist[0];
+	size_t i, sz = 9;
+
+	float sum = 0;
+	for (i = 0; i < sz; i++)
+		sum += hist[i] * hist[i];
+
+	float scale = 1.f / (std::sqrt(sum) + sz*0.1f), thresh = 0.8;
+
+	for (i = 0, sum = 0; i < sz; i++)
+	{
+		hist[i] = std::min(hist[i] * scale, thresh);
+		sum += hist[i] * hist[i];
+	}
+
+	scale = 1.f / (std::sqrt(sum) + 1e-3f);
+
+	for (i = 0; i < sz; i++)
+		hist[i] *= scale;
+}
+
 void SLTP::setSvmDetector(const cv::Ptr<cv::ml::SVM>& _svm)
 {
 	sltpsvm = _svm;
@@ -253,20 +279,6 @@ void SLTP::setSvmDetector(const cv::Ptr<cv::ml::SVM>& _svm)
 void SLTP::loadSvmDetector(const string & xmlfile)
 {
 	sltpsvm = ml::StatModel::load<ml::SVM>(xmlfile);
-	//svmvec.clear();
-	//Mat vec = sltpsvm->getSupportVectors();
-	////int dim = sltpsvm->getVarCount();
-	//Mat alpha, sdivx;
-	//rho = sltpsvm->getDecisionFunction(0, alpha, sdivx);
-	//Mat resultMat = Mat::zeros(1, featurelen, CV_32FC1);
-	////cout << alpha << endl;
-	//resultMat = -1*vec;
-	//const float* resultptr = resultMat.ptr<float>(0);
-	//for (int i = 0; i < vec.cols; ++i)
-	//{
-	//	svmvec.push_back(resultptr[i]);
-	//}
-	//svmvec.push_back(rho);
 }
 
 void SLTP::detect(const cv::Mat& img, vector<cv::Point>& foundlocations, vector<double>& weights, double hitThreshold/*=0*/, cv::Size winStride/*=cv::Size()*/, const vector<cv::Point>& locations/*=vector<cv::Point>()*/) const
@@ -477,6 +489,7 @@ void SLTP::detectMultiScale(const cv::Mat& img, vector<cv::Rect>& foundlocations
 		return;
 	}
 	double scale = 1.;
+	scale0 = 1.1;
 	int levels = 0;
 	vector<double> levelScale;
 	for (levels = 0; levels < nlevels; ++levels)
@@ -505,12 +518,6 @@ void SLTP::detectMultiScale(const cv::Mat& img, vector<cv::Rect>& foundlocations
 	parallel_for_(Range(0, levelScale.size()),
 		Parallel_Detection_SLTP(this, img, hitThreshold, winStride, &levelScale[0], &foundlocations, &mtx, &weights, &foundScales));
 
-	/*foundScales.clear();
-	std::copy(tempScales.begin(), tempScales.end(), back_inserter(foundScales));
-	foundlocations.clear();
-	std::copy(allCandidates.begin(), allCandidates.end(), back_inserter(foundlocations));
-	weights.clear();
-	std::copy(tempWeights.begin(), tempWeights.end(), back_inserter(weights));*/
 
 	if (usemeanshift)
 	{
@@ -518,6 +525,7 @@ void SLTP::detectMultiScale(const cv::Mat& img, vector<cv::Rect>& foundlocations
 	}
 	else
 	{
+		//Utils::NonMaximalSuppression(foundlocations, weights, 0.5, 0);
 		groupRectangles(foundlocations, weights, (int)finalThreshold, 0.2);
 	}
 }

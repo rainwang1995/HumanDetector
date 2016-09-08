@@ -15,9 +15,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="CKinect.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
     <ClInclude Include="opencvHeader.h">
       <Filter>头文件</Filter>
     </ClInclude>
@@ -42,9 +39,6 @@
     <ClInclude Include="HDD.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="PSLTP.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
     <ClInclude Include="LDPK.h">
       <Filter>头文件</Filter>
     </ClInclude>
@@ -60,12 +54,36 @@
     <ClInclude Include="SLTP2.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="SLTP3.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="platt_scaling.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="RDSF.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="PLDPK.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="DCAfusion.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="ccafusion.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="ELDP.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="PELDP.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="MPLDPK.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="preprocess.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="CKinect.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="test.cpp">
@@ -86,9 +104,6 @@
     <ClCompile Include="HDD.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="PSLTP.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
     <ClCompile Include="LDPK.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
@@ -102,6 +117,33 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="SLTP2.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="SLTP3.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="platt_scaling.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="RDSF.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="PLDPK.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="DCAfusion.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="ccafusion.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="ELDP.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="PELDP.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="MPLDPK.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

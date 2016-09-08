@@ -41,7 +41,7 @@ private:
 	void cal_params();
 
 	void compute_dxdy(const cv::Mat& img, cv::Mat& dx, cv::Mat& dy)const;
-	void compute_sign(const cv::Mat& dimg, cv::Mat& signimg,int thr)const;
+	void compute_sign(const cv::Mat& dimg, cv::Mat& signimg, int thrpos, int thrneg)const;
 
 	void compute_histcell(const cv::Mat& signimgx, const cv::Mat& signimgy, vector<float>& hist)const;
 	void compute_histcell(const cv::Mat& signimgx, const cv::Mat& signimgy, float* hist)const;
